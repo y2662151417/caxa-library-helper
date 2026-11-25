@@ -4,7 +4,7 @@
 
 ; Executes the SAME persistence code as the live helper, with fabricated data.
 ; Never opens/reads an EXB and never sends CAD keys, mouse clicks, or network calls.
-testFile := A_Temp "\CAXA_guide_checkpoint_test_" A_Pid ".ini"
+testFile := A_Temp "\CAXA_guide_checkpoint_test_" DllCall("GetCurrentProcessId", "UInt") ".ini"
 sig := "a" . "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 ; Exactly 64 hex digits: a + 63 b.
 workFile := "D-001_虚构图__图库制作.exb"
