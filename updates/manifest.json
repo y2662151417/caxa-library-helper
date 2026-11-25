@@ -25,8 +25,8 @@
     },
     {
       "path": "app/core.py",
-      "size": 45463,
-      "sha256": "57331bb41df8b99ce877551a328544e7baca6e48f64920e25e7780f8bc91e439"
+      "size": 45483,
+      "sha256": "d1c63963cc5dbe01168db38892c16294b9dc99a9111efd07474b5f4aa3190555"
     },
     {
       "path": "app/floating_panel.py",
@@ -70,8 +70,8 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 58048,
-      "sha256": "946a2a75176efcd7c985b5de40d95acb132fc82a9491a0a34d059761ec83f3b3"
+      "size": 58051,
+      "sha256": "d7182ab8ca1323144662e3dc21ce1c44beca2e15c10e0fbcb8ab06a659c45084"
     },
     {
       "path": "app/快捷键工具/CAXA_控件探针_只读.ahk",
