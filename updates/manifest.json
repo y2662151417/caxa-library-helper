@@ -105,8 +105,8 @@
     },
     {
       "path": "runtime/launcher.py",
-      "size": 1839,
-      "sha256": "54158dc2f0e8a4b8960f0aa28d8d9bc27dc5976c73240cdd5a3fd9a4e37c5231"
+      "size": 2069,
+      "sha256": "eea2a1f18d73d2ad4efa7afd1315077e08b59233722935ba8a142b1615d4095a"
     },
     {
       "path": "runtime/updater.py",
