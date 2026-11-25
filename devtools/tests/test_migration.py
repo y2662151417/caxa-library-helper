@@ -21,7 +21,7 @@ class MigrationCopyTests(unittest.TestCase):
             (source / "app" / "app.py").write_text("print('ok')\n", encoding="utf-8")
             (source / "logs").mkdir()
             (source / "logs" / "startup.log").write_text("legacy\n", encoding="utf-8")
-            (source / "logs" / "README.txt").write_text("repository documentation\n", encoding="utf-8")
+                "repository documentation\n",
             (source / "app" / "__pycache__").mkdir()
             (source / "app" / "__pycache__" / "temp.pyc").write_bytes(b"cache")
 
