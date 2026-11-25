@@ -5,12 +5,24 @@ rem Use the batch file's own folder. Do not rely on the caller's working directo
 pushd "%~dp0" >nul 2>&1
 if errorlevel 1 goto PATH_ERROR
 
-if not exist "logs\" mkdir "logs" >nul 2>&1
-if not exist "logs\" goto LOG_ERROR
-set "LOG=logs\startup.log"
+rem A migrated E: installation has a marker beside the repository.
+rem The original C: installation keeps using its existing LOCALAPPDATA data.
+set "CAXA_HELPER_DATA_DIR="
+if exist "%~dp0..\UserData\.caxa_userdata.json" (
+    for %%I in ("%~dp0..\UserData") do set "CAXA_HELPER_DATA_DIR=%%~fI"
+)
+if not defined CAXA_HELPER_DATA_DIR (
+    if defined LOCALAPPDATA set "CAXA_HELPER_DATA_DIR=%LOCALAPPDATA%\CAXA_Library_Helper"
+)
+if not defined CAXA_HELPER_DATA_DIR goto DATA_ERROR
+
+if not exist "%CAXA_HELPER_DATA_DIR%\logs\NUL" mkdir "%CAXA_HELPER_DATA_DIR%\logs" >nul 2>&1
+if not exist "%CAXA_HELPER_DATA_DIR%\logs\NUL" goto LOG_ERROR
+set "LOG=%CAXA_HELPER_DATA_DIR%\logs\startup.log"
 
 > "%LOG%" echo [START] %DATE% %TIME%
 >>"%LOG%" echo [START] Install folder: %CD%
+>>"%LOG%" echo [START] User data: %CAXA_HELPER_DATA_DIR%
 echo CAXA Library Helper - startup check
 
 echo Checking program files...
@@ -69,6 +81,13 @@ goto SHOW_LOG
 echo Could not configure the GitHub update source.
 goto SHOW_LOG
 
+:DATA_ERROR
+echo ERROR: Could not determine the CAXA user-data directory.
+echo Check LOCALAPPDATA or complete the E: migration first.
+pause
+popd
+exit /b 1
+
 :PATH_ERROR
 echo ERROR: Windows could not open the folder containing this BAT file.
 echo Do not move this BAT file away from the app, runtime, logs and updates folders.
@@ -76,8 +95,8 @@ pause
 exit /b 1
 
 :LOG_ERROR
-echo ERROR: Cannot create or access the logs folder.
-echo Check whether this folder is read-only or blocked by Windows security.
+echo ERROR: Cannot create or access the user-data logs folder.
+echo Check whether the selected drive is writable or blocked by Windows security.
 pause
 popd
 exit /b 1
@@ -87,7 +106,7 @@ echo.
 echo ---------------- startup.log ----------------
 type "%LOG%"
 echo.
-echo Log file: %CD%\logs\startup.log
+echo Log file: %LOG%
 pause
 popd
 exit /b 1
