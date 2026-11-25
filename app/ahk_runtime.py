@@ -83,8 +83,8 @@ def _startup_diagnostics(root: Path) -> str:
         except OSError:
             detail = ""
         if detail:
-            parts.append(f"[{path}]\\n{detail[-2400:]}")
-    return "\\n".join(parts) or "没有捕获到启动错误文本。"
+            parts.append(f"[{path}]\n{detail[-2400:]}")
+    return "\n".join(parts) or "没有捕获到启动错误文本。"
 
 def _valid_pe(path: Path, expected_name: str) -> bool:
     try:
@@ -242,7 +242,7 @@ def launch_script(script: Path, storage_dir: Optional[Path] = None, popen=None):
     runner = popen or subprocess.Popen
     flags = getattr(subprocess, "DETACHED_PROCESS", 0x00000008) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
     with log_path.open("wb") as log:
-        log.write((f"--- Launch AutoHotkey {AHK_VERSION}: {script.name} ---\\n").encode("utf-8"))
+        log.write((f"--- Launch AutoHotkey {AHK_VERSION}: {script.name} ---\n").encode("utf-8"))
         log.flush()
         proc = runner(
             [str(exe), "/ErrorStdOut=UTF-8", str(script)],
@@ -270,7 +270,7 @@ def start_script_async(script: Path, callback: Optional[Callable[[bool, str], No
                 return_code = proc.poll()
                 if return_code is not None:
                     raise RuntimeError(
-                        f"AutoHotkey 进程启动后立即退出，退出代码 {return_code}。\\n"
+                        f"AutoHotkey 进程启动后立即退出，退出代码 {return_code}。\n"
                         + _startup_diagnostics(root)
                     )
                 if read_controller_pid(root) == proc.pid:
@@ -286,9 +286,9 @@ def start_script_async(script: Path, callback: Optional[Callable[[bool, str], No
                 except Exception:
                     pass
                 raise RuntimeError(
-                    "AutoHotkey 进程仍在运行，但 8 秒内没有写入与本次进程 PID 匹配的控制器标记。\\n"
+                    "AutoHotkey 进程仍在运行，但 8 秒内没有写入与本次进程 PID 匹配的控制器标记。\n"
                     f"本次进程 PID：{proc.pid}；标记文件 PID：{observed or '缺失/无效'}；"
-                    f"标记路径：{marker}\\n"
+                    f"标记路径：{marker}\n"
                     + _startup_diagnostics(root)
                 )
             message = f"AutoHotkey v{AHK_VERSION} 控制器已注册，PID {proc.pid}。"
@@ -296,7 +296,7 @@ def start_script_async(script: Path, callback: Optional[Callable[[bool, str], No
         except Exception as exc:
             root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
             message = (
-                f"AutoHotkey v{AHK_VERSION} 控制器启动失败：{exc}\\n\\n"
+                f"AutoHotkey v{AHK_VERSION} 控制器启动失败：{exc}\n\n"
                 "无需重新安装助手。请检查本机启动诊断日志；首次运行需要联网下载并校验官方便携版。"
             )
             ok = False
