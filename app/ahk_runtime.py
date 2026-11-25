@@ -2,8 +2,8 @@
 
 Downloads the official portable ZIP on first use, verifies the publisher's
 SHA-256 digest, and extracts only the matching architecture executable into
-%LOCALAPPDATA%. No installer, registry write, or administrator privilege is
-required. The helper still needs network access for the first download.
+the configured CAXA user-data directory (or LOCALAPPDATA fallback). No installer,
+registry write, or administrator privilege is required.
 """
 from __future__ import annotations
 
@@ -31,6 +31,12 @@ def _is_windows() -> bool:
 
 
 def _default_storage_dir() -> Path:
+    configured = os.environ.get("CAXA_HELPER_DATA_DIR", "").strip()
+    if configured:
+        path = Path(configured).expanduser()
+        if not path.is_absolute():
+            raise RuntimeError("CAXA_HELPER_DATA_DIR 必须是绝对路径。")
+        return path
     local = os.environ.get("LOCALAPPDATA")
     if os.name == "nt" and local:
         return Path(local) / "CAXA_Library_Helper"
