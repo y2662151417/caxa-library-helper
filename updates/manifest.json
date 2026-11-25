@@ -70,8 +70,8 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 58251,
-      "sha256": "f1e7ce6a22f0791a62f5f9ef3e37175841f0524964672661c86638942ef0834d"
+      "size": 58346,
+      "sha256": "b94f9bfb834da56cfc4ebf18603deac04ef4f74499443e5c6d8db9af69638041"
     },
     {
       "path": "app/快捷键工具/CAXA_控件探针_只读.ahk",
@@ -85,8 +85,8 @@
     },
     {
       "path": "app/快捷键工具/CAXA_视图断点.ahk",
-      "size": 2220,
-      "sha256": "eb85c5edf62b9c383cfc4e02b126b9301e8d9dc87fc49973dad7dd4591f3a7f4"
+      "size": 2298,
+      "sha256": "8bb8208f40004d6354fb6e08a84ed56dddde56c2962bc61de6bc5b2510f86306"
     },
     {
       "path": "app/快捷键工具/标题匹配_无CAD自测.ahk",
@@ -95,8 +95,8 @@
     },
     {
       "path": "app/快捷键工具/视图断点_无CAD自测.ahk",
-      "size": 2414,
-      "sha256": "d553131b6027ce13ac0d1edc4d53f13ebfb0394928c458763073bb1f3b5f5482"
+      "size": 2447,
+      "sha256": "1d9d85c381e5294734be4c1b06734ea1ae377239bd81427d1d66a972d32ec8ef"
     },
     {
       "path": "app/快捷键工具/说明_快捷操作.md",
