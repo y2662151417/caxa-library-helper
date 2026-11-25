@@ -26,5 +26,11 @@ class PublicRepoSafetyTests(unittest.TestCase):
         self.assertIn('LOCALAPPDATA', source)
         self.assertIn('CAXA_Library_Helper', source)
 
+
+    def test_startup_does_not_rewrite_existing_update_config(self):
+        source = (ROOT / '启动CAXA助手.bat').read_text(encoding='utf-8')
+        self.assertIn('if not exist "updates\\update_source.json"', source)
+        self.assertIn("p.write_text(json.dumps(d", source)
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
