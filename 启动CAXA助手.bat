@@ -36,7 +36,7 @@ if not defined PY goto NO_PYTHON
 
 >>"%LOG%" echo [START] Python command: %PY%
 echo Checking GitHub update source...
-%PY% -c "import json,pathlib; p=pathlib.Path('updates/update_source.json'); d=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}; d.setdefault('app_id','CAXA_Library_Helper'); d.setdefault('channel','stable'); d.setdefault('auto_check',True); d.setdefault('timeout_seconds',3); d['manifest_url']=str(d.get('manifest_url') or '').strip() or 'https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/updates/manifest.json'; p.parent.mkdir(parents=True,exist_ok=True); p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\\n',encoding='utf-8')" >>"%LOG%" 2>&1
+%PY% -c "import json,pathlib; p=pathlib.Path('updates/update_source.json'); d=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}; d.setdefault('app_id','CAXA_Library_Helper'); d.setdefault('channel','stable'); d.setdefault('auto_check',True); d.setdefault('timeout_seconds',3); d['manifest_url']=str(d.get('manifest_url') or '').strip() or 'https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/updates/manifest.json'; p.parent.mkdir(parents=True,exist_ok=True); p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')" >>"%LOG%" 2>&1
 if errorlevel 1 goto CONFIG_ERROR
 
 >>"%LOG%" echo [START] Launching runtime\launcher.py
