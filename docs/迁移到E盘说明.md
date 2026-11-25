@@ -17,7 +17,7 @@ Python 核心、AutoHotkey 控制器和受管 AHK 运行时统一读取 `CAXA_HE
 ## 一键迁移
 
 1. 在 GitHub Desktop 对 `main` 执行 Fetch 和 Pull。
-2. 关闭 CAXA 制作控制台和浮动面板。
+2. 关闭 CAXA 制作控制台和浮动面板；如果系统托盘区仍有 AutoHotkey 图标，右键选择 Exit。
 3. 从仓库根目录双击 `迁移到E盘.bat`。
 4. 脚本将仓库复制到 `E:\CAXA助手\caxa-library-helper`，将用户数据复制到 `E:\CAXA助手\UserData`。
 5. 仓库文件逐个进行 SHA-256 校验；SQLite 主数据库通过 SQLite backup API 复制，并比较 `PRAGMA quick_check` 和各表记录数。
