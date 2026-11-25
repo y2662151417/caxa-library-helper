@@ -8,7 +8,7 @@ import copy, json, os, tempfile, sys, ctypes, configparser, time
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
-import core, profiles, workflow_v08, router_v11, autoread, bridge
+import core, profiles, workflow_v08, router_v11, autoread, bridge, ahk_runtime
 
 class Panel:
     def __init__(self, app):
@@ -477,52 +477,50 @@ class Panel:
             return bool(ok and code.value==259)
         except Exception:return False
 
+
     def ensure_ahk_controller(self):
         if sys.platform!='win32':
             self.status.set('CAXA 控制器仅支持 Windows。')
             return
-        marker=core.storage_dir()/'ahk_controller.pid'
-        try:
-            pid=int(marker.read_text(encoding='ascii').strip()) if marker.is_file() else 0
-        except (OSError,ValueError):pid=0
+        pid=ahk_runtime.read_controller_pid(core.storage_dir())
         if self._pid_alive(pid):
-            self.status.set('CAXA 控制器已运行；可直接使用上方按钮。')
+            self.status.set('CAXA 控制器已连接；可以直接使用上方操作。')
             return
         try:
-            self.status.set('正在准备 AutoHotkey v2.0.32（首次运行会自动下载并校验，约3.2 MB）…')
+            self.status.set('正在准备并验证 CAXA 控制器…')
             self.app.launch_hotkeys(on_complete=self._ahk_launch_complete)
         except Exception as e:
-            self.status.set('控制器未启动：' + str(e))
+            self.status.set('控制器未启动：'+str(e))
 
     def _ahk_launch_complete(self, ok, message):
         if self._closed:
             return
         if ok:
-            self.status.set('AutoHotkey 运行时已就绪，正在检查控制器…')
-            self._schedule(1200,self.check_ahk_controller_start)
+            self.check_ahk_controller_start()
         else:
-            self.status.set('控制器启动失败；请查看启动错误信息。')
-
+            first=message.splitlines()[0] if message else '未知启动错误'
+            self.status.set(first[:190])
 
     def check_ahk_controller_start(self):
-        marker=core.storage_dir()/'ahk_controller.pid'
-        try:pid=int(marker.read_text(encoding='ascii').strip()) if marker.is_file() else 0
-        except (OSError,ValueError):pid=0
+        pid=ahk_runtime.read_controller_pid(core.storage_dir())
         if self._pid_alive(pid):
-            self.status.set('CAXA 控制器已运行；可直接点击操作。')
+            self.status.set(f'CAXA 控制器已连接（PID {pid}）；可以开始操作。')
             return
-        log_path=core.storage_dir()/'ahk_controller_startup.log'
-        try:
-            detail=log_path.read_text(encoding='utf-8',errors='replace')[-700:].strip()
-        except OSError:
-            detail=''
-        errors=[line.strip() for line in detail.splitlines()
-                if line.strip() and not line.startswith('--- Launch')]
-        if errors:
-            self.status.set('控制器启动失败：'+errors[-1][:180])
-            self._last_controller_error=detail
+        root=core.storage_dir()
+        marker_error=root/'ahk_controller_marker_error.log'
+        startup_log=root/'ahk_controller_startup.log'
+        details=[]
+        for path in (marker_error,startup_log):
+            try:
+                value=path.read_text(encoding='utf-8-sig',errors='replace').strip()
+            except OSError:
+                value=''
+            if value:
+                details.append(value[-500:])
+        if details:
+            self.status.set('控制器未注册：'+details[-1].splitlines()[-1][:150])
         else:
-            self.status.set('控制器未启动；诊断日志：'+str(log_path))
+            self.status.set('控制器未注册；诊断日志：'+str(startup_log))
     def connect_cad(self):
         self._queue_ahk_action('bind_cad',
             '将尝试定位当前任务的工作副本窗口：\n图号：{code}\n工作副本：{work}\n\n找到唯一匹配窗口后会显示进程信息，请确认绑定。')
