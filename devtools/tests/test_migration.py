@@ -28,7 +28,11 @@ class MigrationCopyTests(unittest.TestCase):
 
             self.assertTrue((destination / ".git" / "config").is_file())
             self.assertTrue((destination / "app" / "app.py").is_file())
-            self.assertFalse((destination / "logs").exists())
+            self.assertEqual(
+                (destination / "logs" / "README.txt").read_text(encoding="utf-8"),
+                "repository documentation\\n",
+            )
+            self.assertFalse((destination / "logs" / "startup.log").exists())
             self.assertFalse((destination / "app" / "__pycache__").exists())
             self.assertTrue(stats["git_metadata_preserved"])
 
