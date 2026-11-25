@@ -11,7 +11,7 @@ echo This tool copies the Git repository and private UserData to:
 echo E:\CAXA助手
 echo.
 echo The original C: files will NOT be deleted.
-echo Close the CAXA helper panel before continuing.
+echo Close the CAXA helper panel. If the AutoHotkey tray icon remains, exit it first.
 echo.
 
 if not exist "E:\NUL" goto NO_E_DRIVE
