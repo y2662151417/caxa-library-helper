@@ -33,8 +33,12 @@ def main() -> int:
             sys.path.insert(0, str(RUNTIME_DIR))
             import updater
             result = updater.check_from_install(ROOT, log=write_log)
-            if result.get("status") == "updated":
-                write_log(f"已应用增量更新：{result.get('version')}；文件：{result.get('updated')}")
+            status = result.get("status", "unknown")
+            version = result.get("version", "?")
+            updated = result.get("updated", [])
+            write_log(f"更新检查完成：状态={status}；版本={version}；下载/替换文件数={len(updated)}")
+            if status == "updated":
+                write_log(f"已应用增量更新：{version}；文件：{updated}")
         except Exception as exc:
             # An update failure must not prevent the last working version from starting.
             write_log(f"更新检查/应用失败，继续启动当前版本：{type(exc).__name__}: {exc}")
