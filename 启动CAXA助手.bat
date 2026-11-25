@@ -16,17 +16,17 @@ if not defined CAXA_HELPER_DATA_DIR (
 )
 if not defined CAXA_HELPER_DATA_DIR goto DATA_ERROR
 
-if not exist "%CAXA_HELPER_DATA_DIR%\logs\NUL" mkdir "%CAXA_HELPER_DATA_DIR%\logs" >nul 2>&1
-if not exist "%CAXA_HELPER_DATA_DIR%\logs\NUL" goto LOG_ERROR
-set "LOG=%CAXA_HELPER_DATA_DIR%\logs\startup.log"
-
-> "%LOG%" echo [START] %DATE% %TIME%
->>"%LOG%" echo [START] Install folder: %CD%
->>"%LOG%" echo [START] User data: %CAXA_HELPER_DATA_DIR%
+rem Keep bootstrap diagnostics in TEMP until Python verifies UserData is writable.
+set "BOOT_LOG=%TEMP%\CAXA_Library_Helper_bootstrap.log"
+set "LOG=%BOOT_LOG%"
+> "%BOOT_LOG%" echo [START] %DATE% %TIME%
+>>"%BOOT_LOG%" echo [START] Install folder: %CD%
+>>"%BOOT_LOG%" echo [START] User data: %CAXA_HELPER_DATA_DIR%
 echo CAXA Library Helper - startup check
 
 echo Checking program files...
 if not exist "runtime\launcher.py" goto MISSING_RUNTIME
+if not exist "runtime\prepare_data.py" goto MISSING_PREPARE
 if not exist "app\app.py" goto MISSING_APP
 
 set "PY="
@@ -46,6 +46,14 @@ if not defined PY (
 
 if not defined PY goto NO_PYTHON
 
+>>"%BOOT_LOG%" echo [START] Python command: %PY%
+echo Checking UserData write access...
+%PY% "runtime\prepare_data.py" >>"%BOOT_LOG%" 2>&1
+if errorlevel 1 goto LOG_ERROR
+set "LOG=%CAXA_HELPER_DATA_DIR%\logs\startup.log"
+>>"%LOG%" echo [START] %DATE% %TIME%
+>>"%LOG%" echo [START] Install folder: %CD%
+>>"%LOG%" echo [START] User data: %CAXA_HELPER_DATA_DIR%
 >>"%LOG%" echo [START] Python command: %PY%
 echo Checking GitHub update source...
 if not exist "updates\update_source.json" (
@@ -96,9 +104,16 @@ echo Do not move this BAT file away from the app, runtime, logs and updates fold
 pause
 exit /b 1
 
+:MISSING_PREPARE
+>>"%BOOT_LOG%" echo [ERROR] runtime\prepare_data.py is missing.
+echo Missing file: runtime\prepare_data.py
+goto SHOW_LOG
+
 :LOG_ERROR
-echo ERROR: Cannot create or access the user-data logs folder.
-echo Check whether the selected drive is writable or blocked by Windows security.
+echo ERROR: Cannot prepare or write the user-data logs folder.
+echo User-data directory: "%CAXA_HELPER_DATA_DIR%"
+echo Detailed bootstrap diagnostics:
+type "%BOOT_LOG%"
 pause
 popd
 exit /b 1
