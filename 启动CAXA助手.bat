@@ -49,7 +49,7 @@ if not defined PY goto NO_PYTHON
 >>"%LOG%" echo [START] Python command: %PY%
 echo Checking GitHub update source...
 if not exist "updates\update_source.json" (
-    %PY% -c "import json,pathlib; p=pathlib.Path('updates/update_source.json'); d={'app_id':'CAXA_Library_Helper','channel':'stable','auto_check':True,'timeout_seconds':3,'manifest_url':'https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/updates/manifest.json'}; p.parent.mkdir(parents=True,exist_ok=True); p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\\n',encoding='utf-8')" >>"%LOG%" 2>&1
+    %PY% -c "import json,pathlib; p=pathlib.Path('updates/update_source.json'); d={'app_id':'CAXA_Library_Helper','channel':'stable','auto_check':True,'timeout_seconds':3,'manifest_url':'https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/updates/manifest.json'}; p.parent.mkdir(parents=True,exist_ok=True); p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')" >>"%LOG%" 2>&1
     if errorlevel 1 goto CONFIG_ERROR
 )
 
