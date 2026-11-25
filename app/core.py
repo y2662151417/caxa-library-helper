@@ -422,7 +422,7 @@ def import_block_names(c, content):
     """Import actual CAXA symbol names and bind them to drawings by exact code.
 
     Accepted formats:
-      - one column: SAMPLE-001_设备示例_规格A
+      - one column: CRB01D2084_垂直重锤拉紧装置_B500_08轴_D500
       - two columns: drawing_code, block_name
     A partial/shared prefix is never used for matching.
     """
