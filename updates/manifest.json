@@ -112,11 +112,6 @@
       "path": "runtime/updater.py",
       "size": 13670,
       "sha256": "beedf1f4bbdafb7c522649a02d75560b1dba864ed762527196eaae4d2eb8401b"
-    },
-    {
-      "path": "README.md",
-      "size": 2549,
-      "sha256": "086d3d4c7f6e806e5a1065b0fff41ec56f2dbda84f7ac8ec2c9642e9224db731"
     }
   ],
   "remove": []
