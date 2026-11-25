@@ -61,5 +61,13 @@ class MigrationCopyTests(unittest.TestCase):
             )
 
 
+    def test_migration_launcher_checks_drive_with_python_and_uses_default_path(self):
+        source = (ROOT / "迁移到E盘.bat").read_text(encoding="utf-8")
+        self.assertIn("os.path.isdir('E:/')", source)
+        self.assertNotIn('E:\\NUL', source)
+        self.assertIn('%PY% "devtools\\migrate_to_e.py"', source)
+        self.assertNotIn('--target-root', source)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
