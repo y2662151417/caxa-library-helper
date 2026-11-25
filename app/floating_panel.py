@@ -81,7 +81,7 @@ class Panel:
         grid=ttk.Frame(self.normal_frame);grid.pack(fill='x',pady=2)
         for col in range(2):grid.columnconfigure(col,weight=1)
         ttk.Button(grid,text='清理图纸',command=self.open_cleanup_window).grid(row=0,column=0,sticky='ew',padx=(0,4),pady=3,ipady=5)
-        ttk.Button(grid,text='六视图定义',command=self.open_views_window).grid(row=0,column=1,sticky='ew',padx=(4,0),pady=3,ipady=5)
+        ttk.Button(grid,text='开始定义图符',command=self.define_symbol).grid(row=0,column=1,sticky='ew',padx=(4,0),pady=3,ipady=5)
         ttk.Button(grid,text='属性与入库',command=self.open_insert_window).grid(row=1,column=0,sticky='ew',padx=(0,4),pady=3,ipady=5)
         ttk.Button(grid,text='图纸管理',command=self.open_workbench).grid(row=1,column=1,sticky='ew',padx=(4,0),pady=3,ipady=5)
 
@@ -166,40 +166,20 @@ class Panel:
         self.update_color_rule_choices()
 
     def open_views_window(self):
-        w=self._dialog('views','六视图定义与视图复核','390x590')
+        # Low-frequency setup only. Daily work starts Symdef directly from the main panel.
+        w=self._dialog('views','视图计划设置','390x285')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
         body=ttk.Frame(w,padding=10);body.pack(fill='both',expand=True)
-        ttk.Label(body,text='当前图纸的视图计划',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,3))
-        ttk.Label(body,text='顺序：全部带尺寸视图 → 关闭尺寸线层 → 全部无尺寸视图。',wraplength=360,foreground='#555').pack(anchor='w',pady=2)
-        choices=ttk.LabelFrame(body,text='需要制作的视图类型',padding=6);choices.pack(fill='x',pady=4)
+        ttk.Label(body,text='视图计划设置',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,4))
+        ttk.Label(body,text='按本张图纸需要勾选视图。保存后，每种视图按带尺寸、无尺寸两个版本建立任务；单个图符最多六项。',wraplength=360,foreground='#555').pack(anchor='w',pady=3)
+        choices=ttk.LabelFrame(body,text='需要制作的视图类型',padding=6);choices.pack(fill='x',pady=5)
         for i,v in enumerate(core.VIEW_TYPES):
             ttk.Checkbutton(choices,text=v,variable=self.app.view_var[v]).grid(row=i//3,column=i%3,sticky='w',padx=4,pady=2)
-        rowp=ttk.Frame(body);rowp.pack(fill='x',pady=2)
+        rowp=ttk.Frame(body);rowp.pack(fill='x',pady=5)
         ttk.Button(rowp,text='载入模板视图',command=self.prepare_views).pack(side='left',fill='x',expand=True,padx=(0,3))
-        ttk.Button(rowp,text='更新当前视图计划',command=self._update_view_plan_from_panel).pack(side='left',fill='x',expand=True,padx=(3,0))
-        ttk.Label(body,textvariable=self.guide_status,wraplength=360,foreground='#24527a').pack(anchor='w',pady=4)
-        ttk.Button(body,text='开始视图引导',command=self.start_view_guide).pack(fill='x',pady=2)
-        ttk.Button(body,text='启动定义图符',command=self.define_symbol).pack(fill='x',pady=2)
-        row=ttk.Frame(body);row.pack(fill='x',pady=2)
-        ttk.Button(row,text='上一视图',command=self.previous_view).pack(side='left',fill='x',expand=True,padx=(0,3))
-        ttk.Button(row,text='下一视图',command=self.next_view).pack(side='left',fill='x',expand=True,padx=3)
-        ttk.Button(row,text='查看当前项',command=self.show_view_guide).pack(side='left',fill='x',expand=True,padx=(3,0))
-        ttk.Button(body,text='结束引导',command=self.end_view_guide).pack(fill='x',pady=2)
-        ttk.Button(body,text='尺寸层操作说明',command=self.show_dimension_steps).pack(fill='x',pady=2)
-        ttk.Separator(body).pack(fill='x',pady=5)
-        ttk.Label(body,text='视图版本人工复核',font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w')
-        self.view_tree=ttk.Treeview(body,columns=('view','kind','state'),show='headings',height=5,selectmode='browse')
-        for col,title,width in [('view','视图',100),('kind','版本',90),('state','状态',90)]:
-            self.view_tree.heading(col,text=title);self.view_tree.column(col,width=width,stretch=True)
-        self.view_tree.pack(fill='both',expand=True,pady=3)
-        rowv=ttk.Frame(body);rowv.pack(fill='x',pady=2)
-        ttk.Button(rowv,text='已复核',command=lambda:self._set_view_status_from_panel('已复核')).pack(side='left',fill='x',expand=True,padx=(0,2))
-        ttk.Button(rowv,text='待处理',command=lambda:self._set_view_status_from_panel('待处理')).pack(side='left',fill='x',expand=True,padx=2)
-        ttk.Button(rowv,text='不需要',command=lambda:self._set_view_status_from_panel('不需要')).pack(side='left',fill='x',expand=True,padx=(2,0))
-        ttk.Button(body,text='所有计划视图已逐项复核',command=self._review_all_views_from_panel).pack(fill='x',pady=3)
-        ttk.Label(body,text='框选、基点和尺寸层切换仍在 CAXA 中完成；状态只记录人工确认。',wraplength=360,foreground='#777').pack(anchor='w',pady=3)
-        self._refresh_view_table()
+        ttk.Button(rowp,text='保存当前计划',command=self._update_view_plan_from_panel).pack(side='left',fill='x',expand=True,padx=(3,0))
+        ttk.Label(body,text='日常制作不需要进入此窗口。返回主面板点击“开始定义图符”，助手会自动启动 CAXA Symdef 并输入当前计划的视图数量。',wraplength=360,foreground='#24527a').pack(anchor='w',pady=5)
 
     def _update_view_plan_from_panel(self):
         if not self.require():return
@@ -578,6 +558,14 @@ class Panel:
         self._schedule(500,self._refresh_guide_status)
 
     def define_symbol(self):
+        if not self.require():return
+        job=self._published_job()
+        if not job:return
+        raw_plan=job.get('view_plan','')
+        plan=raw_plan.split('|') if raw_plan else []
+        if not 1<=len(plan)<=6 or any(not item.strip() for item in plan):
+            messagebox.showwarning('视图计划无效','当前图纸尚未建立有效的 1–6 项视图计划。请先在图纸管理中设置视图计划。',parent=self.win)
+            return
         self._queue_guide_action('define_symbol')
 
     def edit_symbol_attributes(self):
@@ -606,8 +594,6 @@ class Panel:
         if not job:return
         if job.get('block_name_status')!='已匹配' or not job.get('block_name'):
             messagebox.showwarning('正式块名称未匹配','当前图纸没有按完整图号唯一匹配正式块名称，不能执行最终入库。',parent=self.win);return
-        if not self._guide_checkpoint_complete(job):
-            messagebox.showwarning('视图尚未逐项确认','必须先完成当前任务的全部视图引导，再执行最终入库。此记录只是人工确认，不代表 CAD 自动验证。',parent=self.win);return
         if not messagebox.askyesno('最终入库确认',
             '即将点击 CAXA 图符入库窗口中的【完成】按钮。\n\n请确认：\n'
             '① 正式块名称与当前图号一致；\n② 图库类别正确；\n③ 标题栏属性已填入并核对；\n'
@@ -627,9 +613,8 @@ class Panel:
 
     def open_calibration_window(self):
         w=tk.Toplevel(self.win);w.title('首次校准 CAXA 控件');w.geometry('430x300');w.transient(self.win)
-        ttk.Label(w,text='先打开对应的 CAXA 窗口，再点击校准。面板会暂时隐藏约7秒；把鼠标移到指定按钮/输入框上，不要点击。',wraplength=395).pack(anchor='w',padx=12,pady=10)
+        ttk.Label(w,text='定义图符已改为调用 CAXA 原生命令，无需校准。其余属性按钮和输入框仍需首次校准。面板会暂时隐藏约7秒；把鼠标移到目标控件上，不要点击。',wraplength=395).pack(anchor='w',padx=12,pady=10)
         for label,action in (
-            ('校准“定义图符”按钮','calibrate_define'),
             ('校准“属性编辑”按钮（先打开对应弹窗）','calibrate_attr_edit'),
             ('校准“填入当前标题栏属性值”按钮（先打开对应弹窗）','calibrate_attr_fill'),
             ('校准“图符名称”输入框（先打开图符入库窗口）','calibrate_symbol_name'),
