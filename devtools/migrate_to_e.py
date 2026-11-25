@@ -260,7 +260,7 @@ def check_helper_is_stopped(source_repo: Path, source_data: Path) -> None:
             ) from exc
         if _pid_is_alive(pid):
             raise MigrationError(
-                "检测到 AutoHotkey 控制器仍在运行。请先关闭 CAXA 制作控制台和浮动面板，再运行迁移。"
+                "检测到 AutoHotkey 控制器仍在运行。请先关闭 CAXA 制作控制台和浮动面板；如果托盘区仍有 AutoHotkey 图标，请右键选择 Exit 后再运行迁移。"
             )
 
     if os.name != "nt":
