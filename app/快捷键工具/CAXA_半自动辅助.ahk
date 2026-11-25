@@ -10,7 +10,9 @@ Persistent
 SetTitleMatchMode 2
 CoordMode "Mouse", "Client"
 
-global dataDir := EnvGet("LOCALAPPDATA") "\CAXA_Library_Helper"
+global dataDir := EnvGet("CAXA_HELPER_DATA_DIR")
+if dataDir = ""
+    dataDir := EnvGet("LOCALAPPDATA") "\CAXA_Library_Helper"
 DirCreate dataDir
 global cfgFile := dataDir "\cad_buttons.ini"
 global jobFile := dataDir "\active_job.ini"
