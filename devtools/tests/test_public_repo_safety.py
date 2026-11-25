@@ -20,8 +20,9 @@ class PublicRepoSafetyTests(unittest.TestCase):
         self.assertIn('("app", "runtime")', source)
         self.assertIn('MAX_TOTAL_BYTES', source)
 
-    def test_private_data_location_is_local_appdata(self):
+    def test_private_data_location_supports_e_drive_override_and_legacy_fallback(self):
         source = (ROOT / 'app' / 'core.py').read_text(encoding='utf-8')
+        self.assertIn('CAXA_HELPER_DATA_DIR', source)
         self.assertIn('LOCALAPPDATA', source)
         self.assertIn('CAXA_Library_Helper', source)
 
