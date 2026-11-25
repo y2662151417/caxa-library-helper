@@ -9,7 +9,8 @@ guideCheckpointSave(path, signature, workingFile, plan, cursor, count) {
         return false
     ; Write a new checkpoint and replace the old one only once all fields exist.
     ; A partial/invalid checkpoint is never accepted by guideCheckpointRead.
-    tmp := path ".pending_" A_Pid
+    currentPid := DllCall("GetCurrentProcessId", "UInt")
+    tmp := path ".pending_" currentPid "_" A_TickCount
     try {
         if FileExist(tmp)
             FileDelete tmp
