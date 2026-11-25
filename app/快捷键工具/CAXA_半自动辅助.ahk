@@ -271,8 +271,12 @@ copySuggestedName(*) {
             proposed := suggested
             nameLabel := "本地建议名称（尚未导入正式块名称清单）"
         } else {
-            MsgBox "当前图号没有唯一匹配的正式块名称。`n图号：" code "`n匹配状态：" blockStatus
-                "`n`n请先在工作台导入并核对块名称清单；不会用相似图号猜测。", "块名称未匹配", "Icon!"
+            MsgBox(
+                "当前图号没有唯一匹配的正式块名称。`n图号：" . code . "`n匹配状态：" . blockStatus
+                . "`n`n请先在工作台导入并核对块名称清单；不会用相似图号猜测。",
+                "块名称未匹配",
+                "Icon!"
+            )
             return
         }
         if code = "" || proposed = "" {
@@ -280,9 +284,11 @@ copySuggestedName(*) {
             return
         }
         originalTitle := WinGetTitle("A")
-        caption := nameLabel "：`n" proposed "`n`n工作台图纸：" filename
-            "`n当前 CAD 窗口：" WinGetTitle("A")
-            "`n`n确认工作台选中的图纸与 CAD 中打开的图纸一致？"
+        caption := (
+            nameLabel . "：`n" . proposed . "`n`n工作台图纸：" . filename
+            . "`n当前 CAD 窗口：" . WinGetTitle("A")
+            . "`n`n确认工作台选中的图纸与 CAD 中打开的图纸一致？"
+        )
         if MsgBox(caption, "防串图确认", "YesNo Icon? Default2") != "Yes"
             return
         sig := IniRead(jobFile, "active", "job_signature", "")
@@ -832,8 +838,10 @@ startDuplicateLineCleanup(expectedSignature := "") {
 
 statusInfo(*) {
     global cadExe, isPaused, cfgFile, jobFile
-    description := "进程：" (cadExe != "" ? cadExe : "未绑定")
-        "`n状态：" (isPaused ? "暂停" : "启用")
+    description := (
+        "进程：" . (cadExe != "" ? cadExe : "未绑定")
+        . "`n状态：" . (isPaused ? "暂停" : "启用")
+    )
     for slot, title in Map("define","开始定义", "attrEdit","属性编辑", "attrFill","填入当前标题栏", "galleryFinish","完成入库", "dimToggle","尺寸层按钮") {
         value := IniRead(cfgFile, slot, "x", "")
         description .= "`n" title "：" (value != "" ? "已标定" : "未标定")
@@ -1084,8 +1092,12 @@ startGuide(expectedSignature := "") {
         }
         docTitle := WinGetTitle("ahk_id " originalWindow)
         if !titleHasExactWorkFile(docTitle, workName) {
-            MsgBox "当前窗口标题未包含任务对应的工作副本文件名：`n" docTitle
-              "`n`n为避免串图，本图仅允许手动 CAD 操作。可继续使用离线任务清单。", "标题无法核实", "Icon!"
+            MsgBox(
+                "当前窗口标题未包含任务对应的工作副本文件名：`n" . docTitle
+                . "`n`n为避免串图，本图仅允许手动 CAD 操作。可继续使用离线任务清单。",
+                "标题无法核实",
+                "Icon!"
+            )
             return
         }
         if MsgBox("请核对 CAXA 当前打开的是工作副本：`n" fullName
