@@ -137,7 +137,7 @@ class Panel:
         self._collapsed=False
         self.collapsed_frame.pack_forget()
         self.normal_frame.pack(fill='both',expand=True)
-        self.win.minsize(320,390);self.win.maxsize(370,500)
+        self.win.minsize(320,270);self.win.maxsize(390,390)
         self.win.geometry(self._expanded_geometry)
         self.win.attributes('-topmost',True)
 
@@ -187,7 +187,7 @@ class Panel:
         ttk.Label(w,text='颜色／图层自动处理暂不开放：红、绿、白的公司标准映射尚未完整核实。这里不要求你逐条新增规则，也不会猜测图层或线型。',
                   wraplength=315,foreground='#8a5a20').pack(anchor='w',pady=5)
     def open_views_window(self):
-        # Low-frequency setup only. Daily work starts Symdef directly from the main panel.
+        # Low-frequency setup only. Daily work stays on the compact home page.
         w=self._dialog('views','视图计划设置','390x285')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
