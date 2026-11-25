@@ -1,6 +1,6 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.42.1",
+  "version": "0.42.2",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
@@ -30,8 +30,8 @@
     },
     {
       "path": "app/floating_panel.py",
-      "size": 55925,
-      "sha256": "5ac97344fc8333d24d273e41dc2ac873e6e946f2e43e652306ebc8c62f5e4cf6"
+      "size": 55913,
+      "sha256": "a0cdeec7239807f639125a3ce4390ccd6b1ea647292a762a40bb9f02e59f65e9"
     },
     {
       "path": "app/guided.py",
@@ -101,7 +101,7 @@
     {
       "path": "app/快捷键工具/说明_快捷操作.md",
       "size": 2224,
-      "sha256": "3f1263516ebc33a7be18fd0e06767e852883a93e212cf74f8e6eeae2f53f33e9"
+      "sha256": "ec7ede1f0a1a6c7c2865c1ce967f75e92659057da0124d0f0d0907d0e64ff13b"
     },
     {
       "path": "runtime/launcher.py",
@@ -116,7 +116,7 @@
     {
       "path": "app/VERSION.txt",
       "size": 7,
-      "sha256": "d8b0876e7932991a8fc74df0ab19676d7ab66e34cbb63cf2299d02993ceb8caf"
+      "sha256": "f6ef1ae6a08372b0b15b45fa724439f4b1f7c8ab45b1620c98eb65e8a12e1a4d"
     },
     {
       "path": "README.md",
