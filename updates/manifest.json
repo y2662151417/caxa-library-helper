@@ -1,0 +1,118 @@
+{
+  "app_id": "CAXA_Library_Helper",
+  "version": "0.39.0",
+  "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
+  "files": [
+    {
+      "path": "app/ahk_runtime.py",
+      "size": 9325,
+      "sha256": "8568639f2e7c3ca1f63d8d04fbadf78d4537858a3acb43a3770cdd965fff3d58"
+    },
+    {
+      "path": "app/app.py",
+      "size": 47100,
+      "sha256": "5ea1f0183cd9c4fe87245d3ddeedce7677c281472b85524364fecc5df9ddf850"
+    },
+    {
+      "path": "app/autoread.py",
+      "size": 5961,
+      "sha256": "1ffca5f2ccbd9675d0f9653bf9a3eff4c4b1560a097de6ca483638f5527a2cd3"
+    },
+    {
+      "path": "app/bridge.py",
+      "size": 7772,
+      "sha256": "4ddc68c004eee9ab3e338faf96930f340ca2f2dd4ffa76e0bb87c52f9b443b8f"
+    },
+    {
+      "path": "app/core.py",
+      "size": 45463,
+      "sha256": "57331bb41df8b99ce877551a328544e7baca6e48f64920e25e7780f8bc91e439"
+    },
+    {
+      "path": "app/floating_panel.py",
+      "size": 56693,
+      "sha256": "74bda66306325dcdf605265fb403bf1ee5b9aa45f0417b0b0efb57618d251fc6"
+    },
+    {
+      "path": "app/guided.py",
+      "size": 2489,
+      "sha256": "397765a60b9a57eaf392c1821801156c3a5925c342818d5961cd7c5491c43f6c"
+    },
+    {
+      "path": "app/preflight.py",
+      "size": 8209,
+      "sha256": "8528af29589068abf59cf2e3612073ae5344bd976a47b16400ac198d64b97cd2"
+    },
+    {
+      "path": "app/profiles.py",
+      "size": 5914,
+      "sha256": "ce12a80e7bf6fdb0dedb57bebcda9fcd6b44762ac8d9934019444a7b94a3bccb"
+    },
+    {
+      "path": "app/resources/图库模板_示例.json",
+      "size": 1312,
+      "sha256": "0c0280642f4d5dbba31a24407d89a555e21f0b224a7b2a8ab97eea08870c4c4a"
+    },
+    {
+      "path": "app/router_v11.py",
+      "size": 2199,
+      "sha256": "7449526ebc6444eb2f05feb33baffbeef8b987a0555c6c1974dfbbacf4332a13"
+    },
+    {
+      "path": "app/verify_action.py",
+      "size": 2017,
+      "sha256": "6489e4bbb53aee14b0fd5eb2f1d59d39cf0faa38e274432dddc240bd53b592cc"
+    },
+    {
+      "path": "app/workflow_v08.py",
+      "size": 14208,
+      "sha256": "4b59cceea2134d038034f57149add7104271496b75b0ee4e0e715465458b8ecf"
+    },
+    {
+      "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
+      "size": 58048,
+      "sha256": "946a2a75176efcd7c985b5de40d95acb132fc82a9491a0a34d059761ec83f3b3"
+    },
+    {
+      "path": "app/快捷键工具/CAXA_控件探针_只读.ahk",
+      "size": 3837,
+      "sha256": "4468d8caf0451d3b2acfdebe2217047ab9a01b0f34fee15725e1b8c601e71dfe"
+    },
+    {
+      "path": "app/快捷键工具/CAXA_标题匹配.ahk",
+      "size": 1343,
+      "sha256": "b8ec7d8aac59a9d444de2b2f9dd3fbd81eb6f3adba1e96a40dd016f7ff33249f"
+    },
+    {
+      "path": "app/快捷键工具/CAXA_视图断点.ahk",
+      "size": 2220,
+      "sha256": "eb85c5edf62b9c383cfc4e02b126b9301e8d9dc87fc49973dad7dd4591f3a7f4"
+    },
+    {
+      "path": "app/快捷键工具/标题匹配_无CAD自测.ahk",
+      "size": 1065,
+      "sha256": "83a09d10870b390da9b834d01b2f09e106702ff59512232a6284942192e61daf"
+    },
+    {
+      "path": "app/快捷键工具/视图断点_无CAD自测.ahk",
+      "size": 2414,
+      "sha256": "d553131b6027ce13ac0d1edc4d53f13ebfb0394928c458763073bb1f3b5f5482"
+    },
+    {
+      "path": "app/快捷键工具/说明_快捷操作.md",
+      "size": 4554,
+      "sha256": "d4a438c901acc478d215dd2ad546e14fb2212ad5b6a12378ca0c4b690e0013e8"
+    },
+    {
+      "path": "runtime/launcher.py",
+      "size": 1839,
+      "sha256": "54158dc2f0e8a4b8960f0aa28d8d9bc27dc5976c73240cdd5a3fd9a4e37c5231"
+    },
+    {
+      "path": "runtime/updater.py",
+      "size": 13670,
+      "sha256": "beedf1f4bbdafb7c522649a02d75560b1dba864ed762527196eaae4d2eb8401b"
+    }
+  ],
+  "remove": []
+}

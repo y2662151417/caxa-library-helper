@@ -1,0 +1,35 @@
+[
+  {
+    "id": "vertical_weight_takeup",
+    "label": "垂直重锤拉紧装置（示例）",
+    "required_params": ["带宽", "轴径", "筒径"],
+    "param_aliases": {
+      "带宽": ["皮带宽度", "输送带宽度"],
+      "轴径": ["轴规格", "轴径代号"],
+      "筒径": ["滚筒直径", "筒体直径"]
+    },
+    "name_tokens": ["图号", "图名", "带宽", "轴径", "筒径"],
+    "view_plan": [
+      {"view":"主视图","kind":"带尺寸"},
+      {"view":"俯视图","kind":"带尺寸"},
+      {"view":"左视图","kind":"带尺寸"},
+      {"view":"主视图","kind":"无尺寸"},
+      {"view":"俯视图","kind":"无尺寸"},
+      {"view":"左视图","kind":"无尺寸"}
+    ],
+    "color_rules": [
+      {"source_color":"红色","target_layer":"中心线层","target_linetype":null,"linetype_scale":null},
+      {"source_color":"绿色","target_layer":null,"target_linetype":null,"linetype_scale":null},
+      {"source_color":"白色","target_layer":null,"target_linetype":null,"linetype_scale":null}
+    ]
+  },
+  {
+    "id": "generic_gallery",
+    "label": "通用图符（名称仅由图号图名组成，需确认符合公司规范）",
+    "required_params": [],
+    "param_aliases": {},
+    "name_tokens": ["图号", "图名"],
+    "view_plan": [],
+    "color_rules": []
+  }
+]

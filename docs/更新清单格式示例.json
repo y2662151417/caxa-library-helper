@@ -1,0 +1,18 @@
+{
+  "app_id": "CAXA_Library_Helper",
+  "version": "0.40.0",
+  "base_url": "https://<approved-host>/<path>",
+  "files": [
+    {
+      "path": "app/floating_panel.py",
+      "size": 12345,
+      "sha256": "<64-character-lowercase-sha256>"
+    },
+    {
+      "path": "runtime/updater.py",
+      "size": 23456,
+      "sha256": "<64-character-lowercase-sha256>"
+    }
+  ],
+  "remove": []
+}

@@ -1,0 +1,43 @@
+# Local user drawings and CAD exports
+*.exb
+*.dwg
+*.dxf
+*.bak
+*.tmp
+
+# Local user data / task manifests / databases
+data/
+config/
+backups/
+working_copies/
+work/
+output/
+*.sqlite
+*.sqlite3
+*.db
+progress.sqlite3
+my_gallery_profiles.json
+active_profile.json
+
+# Runtime-only data and logs
+logs/*
+!logs/README.txt
+updates/staging/
+updates/rollback/
+
+# Secrets and local credentials
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.token
+*credentials*
+*secret*
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
