@@ -7,14 +7,13 @@ echo ==========================================
 echo CAXA Library Helper - migrate to E:
 echo ==========================================
 echo.
-echo This tool copies the Git repository and private UserData to:
-echo E:\CAXA助手
+echo This tool copies the Git repository and private UserData to the E: drive.
+echo The destination folder is configured inside the Python migration tool.
 echo.
 echo The original C: files will NOT be deleted.
 echo Close the CAXA helper panel. If the AutoHotkey tray icon remains, exit it first.
 echo.
 
-if not exist "E:\NUL" goto NO_E_DRIVE
 if not exist "devtools\migrate_to_e.py" goto MISSING_SCRIPT
 
 set "PY="
@@ -32,7 +31,12 @@ if not defined PY (
 )
 if not defined PY goto NO_PYTHON
 
-%PY% "devtools\migrate_to_e.py" --target-root "E:\CAXA助手"
+rem Check the E: drive through Python instead of the unreliable E:\NUL sentinel.
+%PY% -c "import os,sys; sys.exit(0 if os.path.isdir('E:/') else 1)" >nul 2>&1
+if errorlevel 1 goto NO_E_DRIVE
+
+rem Let Python resolve the Unicode destination path; do not pass it through CMD.
+%PY% "devtools\migrate_to_e.py"
 set "RC=%ERRORLEVEL%"
 echo.
 if "%RC%"=="0" (
@@ -46,7 +50,8 @@ popd
 exit /b %RC%
 
 :NO_E_DRIVE
-echo ERROR: E: drive was not found.
+echo ERROR: Python cannot access the E: drive from this session.
+echo Check whether E: is connected and accessible in File Explorer.
 goto FAIL
 
 :MISSING_SCRIPT
