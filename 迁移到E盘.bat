@@ -31,7 +31,7 @@ if not defined PY (
 )
 if not defined PY goto NO_PYTHON
 
-rem Check the E: drive through Python instead of the unreliable E:\NUL sentinel.
+rem Check E: through Python to avoid CMD drive-root sentinel issues.
 %PY% -c "import os,sys; sys.exit(0 if os.path.isdir('E:/') else 1)" >nul 2>&1
 if errorlevel 1 goto NO_E_DRIVE
 
