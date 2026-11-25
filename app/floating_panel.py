@@ -17,11 +17,11 @@ class Panel:
         self.win.title('CAXA 制作控制台')
         sw=max(1024,self.win.winfo_screenwidth())
         sh=max(720,self.win.winfo_screenheight())
-        self._expanded_geometry=f'340x420+{max(10,sw-360)}+{max(35,min(90,sh-470))}'
+        self._expanded_geometry=f'340x310+{max(10,sw-360)}+{max(35,min(90,sh-360))}'
         self._collapsed_geometry=f'300x70+{max(10,sw-320)}+{max(35,min(90,sh-120))}'
         self.win.geometry(self._expanded_geometry)
-        self.win.minsize(320,390)
-        self.win.maxsize(370,500)
+        self.win.minsize(320,270)
+        self.win.maxsize(390,390)
         self.win.resizable(False,False)
         self.win.attributes('-topmost',True)
         self.win.protocol('WM_DELETE_WINDOW',self.hide_panel)
@@ -261,20 +261,35 @@ class Panel:
         ttk.Button(w,text='确认并完成入库',command=self.finish_gallery_insert).pack(fill='x',pady=5,ipady=5)
         ttk.Label(w,text='入库后仍须重新插入图符，检查视图、基点和属性。全部检查完成后，再记录本张人工复核。',
                   wraplength=325,foreground='#666').pack(anchor='w',pady=6)
-        ttk.Button(w,text='记录本张人工复核完成',command=self.signoff_current_drawing).pack(fill='x',pady=4)
+        ttk.Button(w,text='人工复核清单',command=self.open_qc_page).pack(fill='x',pady=4)
+
+    def open_qc_page(self):
+        w=self._dialog('qc','人工复核','360x500')
+        if getattr(w,'_caxa_built',False):return
+        w._caxa_built=True
+        ttk.Label(w,text='只有实际检查完成后才勾选。每项确认都会保存到本机进度记录。',
+                  wraplength=325,foreground='#555').pack(anchor='w',pady=(0,7))
+        for key,label in core.QC_ITEMS:
+            tk.Checkbutton(w,text=label,variable=self.app.qc_vars[key],
+                command=lambda k=key:self.app.on_qc_change(k),
+                wraplength=325,justify='left',anchor='w').pack(fill='x',anchor='w',pady=4)
+        ttk.Separator(w).pack(fill='x',pady=6)
+        ttk.Button(w,text='确认全部计划视图已逐项复核',command=self._review_all_views_from_panel).pack(fill='x',pady=4)
+        ttk.Button(w,text='记录本张人工复核完成',command=self.signoff_current_drawing).pack(fill='x',pady=4,ipady=4)
+
+
     def signoff_current_drawing(self):
         if not self.require():return
         if not messagebox.askyesno('最终人工复核',
             '确认本张所有计划视图、正式名称、基点、属性、图库插入及重新插入结果均已检查并保存？',
-            parent=self._dialogs.get('insert',self.win),default='no'):return
+            parent=self.win,default='no'):return
         try:
             core.finish_drawing(self.app.c,self.app.path)
             self.app.refresh();self.app.sync_job();self.update_recommendation()
             self.status.set('本张已记录为人工复核完成；可以进入下一张。')
+            self._show_home_page()
         except Exception as e:
-            messagebox.showwarning('尚不能标记完成',str(e),parent=self._dialogs.get('insert',self.win))
-
-
+            messagebox.showwarning('尚不能标记完成',str(e),parent=self.win)
     def open_settings_window(self):
         w=self._dialog('settings','设置','350x315')
         if getattr(w,'_caxa_built',False):return
