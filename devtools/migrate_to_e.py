@@ -71,7 +71,8 @@ def _iter_files(root: Path, *, repository: bool = False):
             continue
         relative = path.relative_to(root)
         if repository:
-            if relative.parts and relative.parts[0] == "logs":
+            # Keep the tracked repository documentation, but never copy runtime logs.
+            if relative.parts and relative.parts[0] == "logs" and relative.as_posix() != "logs/README.txt":
                 continue
             if any(part in REPO_CACHE_DIRS for part in relative.parts):
                 continue
@@ -98,8 +99,8 @@ def _repo_ignore(source_root: Path):
     def ignore(directory: str, names: list[str]) -> set[str]:
         current = Path(directory).resolve()
         skipped = set()
-        if current == source_root and "logs" in names:
-            skipped.add("logs")
+        if current == (source_root / "logs").resolve():
+            skipped.update(name for name in names if name != "README.txt")
         for name in names:
             if name in REPO_CACHE_DIRS or name.lower().endswith(".pyc"):
                 skipped.add(name)
@@ -228,6 +229,8 @@ def copy_legacy_repository_logs(source_repo: Path, destination_data: Path) -> in
     count = 0
     for path in _iter_files(legacy_logs):
         relative = path.relative_to(legacy_logs)
+        if relative.as_posix() == "README.txt":
+            continue
         _copy_file_verified(path, destination / relative)
         count += 1
     return count
