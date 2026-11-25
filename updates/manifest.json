@@ -1,12 +1,12 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.41.0",
+  "version": "0.42.0",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
       "path": "app/ahk_runtime.py",
-      "size": 9582,
-      "sha256": "f03575a33bcfbe054cdf1c39cf8c309717420fffc0c0d4ef01c04c471900d417"
+      "size": 10756,
+      "sha256": "e3ef2b7e7a9982de56e8917293e8cb275c26268eea7f571334f60a9dec6fb5fc"
     },
     {
       "path": "app/app.py",
@@ -30,8 +30,8 @@
     },
     {
       "path": "app/floating_panel.py",
-      "size": 54907,
-      "sha256": "854cc54051fe1e71bac9b8c6c7016961f69707acf2852b3d204a09143a17cff5"
+      "size": 55041,
+      "sha256": "c323ca567f73146a54ae9efc6c0b461deff7f68d27c2eab67512ed7d33424ba5"
     },
     {
       "path": "app/guided.py",
@@ -70,8 +70,8 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 65884,
-      "sha256": "c61b1e64b71e28478845cc46989098581a0e24a9556f3e4fd4bd8286338abc03"
+      "size": 65903,
+      "sha256": "5a0988faf21d5bace98c8e911bcd92c240a4d9335f6131c92800fa1bcc9e11ae"
     },
     {
       "path": "app/快捷键工具/CAXA_控件探针_只读.ahk",
@@ -100,8 +100,8 @@
     },
     {
       "path": "app/快捷键工具/说明_快捷操作.md",
-      "size": 5059,
-      "sha256": "0d25f110782c59aa7f4c4886082e6fef8e8a083d5a5c36a1cdf7ffb99217c666"
+      "size": 2224,
+      "sha256": "3f1263516ebc33a7be18fd0e06767e852883a93e212cf74f8e6eeae2f53f33e9"
     },
     {
       "path": "runtime/launcher.py",
@@ -116,7 +116,7 @@
     {
       "path": "app/VERSION.txt",
       "size": 7,
-      "sha256": "b9e1ffbf82a85d39b478e2687066db201e7cf26be2629a20db4f11cc534a67d3"
+      "sha256": "6c17554dba43398fe2fba3e3c6fa2dac4695faa18b6e61aa72342cdc56fe7852"
     },
     {
       "path": "README.md",
