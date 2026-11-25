@@ -1,76 +1,97 @@
 @echo off
-setlocal EnableExtensions
-chcp 65001 >nul
-cd /d "%~dp0"
+setlocal EnableExtensions DisableDelayedExpansion
 
-if not exist "logs" mkdir "logs" >nul 2>nul
-set "LOG=%~dp0logs\startup.log"
-echo.>>"%LOG%"
-echo ============================================================>>"%LOG%"
-echo [启动检查] %date% %time%>>"%LOG%"
-echo [启动检查] 安装目录：%~dp0>>"%LOG%"
+rem Use the batch file's own folder. Do not rely on the caller's working directory.
+pushd "%~dp0" >nul 2>&1
+if errorlevel 1 goto PATH_ERROR
+
+if not exist "logs\\" mkdir "logs" >nul 2>&1
+if not exist "logs\\" goto LOG_ERROR
+set "LOG=logs\startup.log"
+
+> "%LOG%" echo [START] %DATE% %TIME%
+>>"%LOG%" echo [START] Install folder: %CD%
+echo CAXA Library Helper - startup check
+
+echo Checking program files...
+if not exist "runtime\launcher.py" goto MISSING_RUNTIME
+if not exist "app\app.py" goto MISSING_APP
 
 set "PY="
-where py >nul 2>nul
+where py.exe >nul 2>&1
 if not errorlevel 1 (
     py -3 -c "import sys, tkinter; print('Python:',sys.version); print('Tkinter: OK'); sys.exit(0 if sys.version_info >= (3,10) else 1)" >>"%LOG%" 2>&1
     if not errorlevel 1 set "PY=py -3"
 )
 
 if not defined PY (
-    where python >nul 2>nul
+    where python.exe >nul 2>&1
     if not errorlevel 1 (
         python -c "import sys, tkinter; print('Python:',sys.version); print('Tkinter: OK'); sys.exit(0 if sys.version_info >= (3,10) else 1)" >>"%LOG%" 2>&1
         if not errorlevel 1 set "PY=python"
     )
 )
 
-if not defined PY goto no_python
-if not exist "runtime\launcher.py" goto missing_runtime
-if not exist "app\app.py" goto missing_app
+if not defined PY goto NO_PYTHON
 
-echo [启动检查] 使用解释器：%PY%>>"%LOG%"
-echo [启动检查] 检查并补齐 GitHub 更新源配置。>>"%LOG%"
-%PY% -c "import json,pathlib; p=pathlib.Path('updates/update_source.json'); d=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}; d.setdefault('app_id','CAXA_Library_Helper'); d.setdefault('channel','stable'); d.setdefault('auto_check',True); d.setdefault('timeout_seconds',3); d['manifest_url']=str(d.get('manifest_url') or '').strip() or 'https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/updates/manifest.json'; p.parent.mkdir(parents=True,exist_ok=True); p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')" >>"%LOG%" 2>&1
-if errorlevel 1 goto config_failed
+>>"%LOG%" echo [START] Python command: %PY%
+echo Checking GitHub update source...
+%PY% -c "import json,pathlib; p=pathlib.Path('updates/update_source.json'); d=json.loads(p.read_text(encoding='utf-8')) if p.exists() else {}; d.setdefault('app_id','CAXA_Library_Helper'); d.setdefault('channel','stable'); d.setdefault('auto_check',True); d.setdefault('timeout_seconds',3); d['manifest_url']=str(d.get('manifest_url') or '').strip() or 'https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/updates/manifest.json'; p.parent.mkdir(parents=True,exist_ok=True); p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\\n',encoding='utf-8')" >>"%LOG%" 2>&1
+if errorlevel 1 goto CONFIG_ERROR
 
-echo [启动检查] 正在启动 CAXA 图库助手……>>"%LOG%"
-%PY% "%~dp0runtime\launcher.py" >>"%LOG%" 2>&1
+>>"%LOG%" echo [START] Launching runtime\launcher.py
+echo Starting CAXA Library Helper...
+%PY% "runtime\launcher.py" >>"%LOG%" 2>&1
 set "RC=%ERRORLEVEL%"
-if not "%RC%"=="0" goto launch_failed
-exit /b 0
+if "%RC%"=="0" goto DONE
+>>"%LOG%" echo [ERROR] Launcher exit code: %RC%
+echo Startup failed. Details are shown below.
+goto SHOW_LOG
 
-:no_python
-echo [无法启动] 未检测到 Python 3.10+ 或 Tkinter。
-echo [无法启动] 未检测到 Python 3.10+ 或 Tkinter。>>"%LOG%"
-echo 请安装包含 Tcl/Tk 的 Python 3.10 或更高版本，然后再次运行。
-goto show_log
+:NO_PYTHON
+>>"%LOG%" echo [ERROR] Python 3.10+ with Tkinter was not found.
+echo Python 3.10+ with Tkinter was not found.
+echo Install Python with Tcl/Tk, then run this file again.
+goto SHOW_LOG
 
-:missing_runtime
-echo [程序文件缺失] 找不到 runtime\launcher.py。
-echo [程序文件缺失] 找不到 runtime\launcher.py。>>"%LOG%"
-goto show_log
+:MISSING_RUNTIME
+>>"%LOG%" echo [ERROR] runtime\launcher.py is missing.
+echo Missing file: runtime\launcher.py
+goto SHOW_LOG
 
-:missing_app
-echo [程序文件缺失] 找不到 app\app.py。
-echo [程序文件缺失] 找不到 app\app.py。>>"%LOG%"
-goto show_log
+:MISSING_APP
+>>"%LOG%" echo [ERROR] app\app.py is missing.
+echo Missing file: app\app.py
+goto SHOW_LOG
 
-:config_failed
-echo [配置失败] 无法写入 updates\update_source.json。
-echo [配置失败] 无法写入 updates\update_source.json。>>"%LOG%"
-goto show_log
+:CONFIG_ERROR
+>>"%LOG%" echo [ERROR] Could not write updates\update_source.json.
+echo Could not configure the GitHub update source.
+goto SHOW_LOG
 
-:launch_failed
-echo [启动失败] Python 返回错误代码：%RC%
-echo [启动失败] Python 返回错误代码：%RC%>>"%LOG%"
-
-:show_log
-echo.
-echo ---------------- 诊断日志 ----------------
-type "%LOG%"
-echo.
-echo 日志文件：logs\startup.log
-echo 请把这个日志发回给我。
+:PATH_ERROR
+echo ERROR: Windows could not open the folder containing this BAT file.
+echo Do not move this BAT file away from the app, runtime, logs and updates folders.
 pause
 exit /b 1
+
+:LOG_ERROR
+echo ERROR: Cannot create or access the logs folder.
+echo Check whether this folder is read-only or blocked by Windows security.
+pause
+popd
+exit /b 1
+
+:SHOW_LOG
+echo.
+echo ---------------- startup.log ----------------
+type "%LOG%"
+echo.
+echo Log file: %CD%\logs\startup.log
+pause
+popd
+exit /b 1
+
+:DONE
+popd
+exit /b 0
