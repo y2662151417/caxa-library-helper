@@ -997,7 +997,8 @@ fillSymbolNameField(fromPanel := false, expectedSignature := "") {
                 return
             }
             WinActivate(targetWin)
-            if !WinWaitActive(targetWin, , 2) {                autoTip("入库窗口焦点已变化，取消填写")
+            if !WinWaitActive(targetWin, , 2) {
+                autoTip("入库窗口焦点已变化，取消填写")
                 return
             }
         } else if !cadOk(true) || !activeDocumentMatches()
