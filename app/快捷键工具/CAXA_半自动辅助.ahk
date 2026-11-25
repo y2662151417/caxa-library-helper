@@ -46,7 +46,7 @@ SetTimer PanelActionPoll, 250
 try {
     if FileExist(controllerMarker)
         FileDelete controllerMarker
-    FileAppend A_Pid, controllerMarker, "UTF-8"
+    FileAppend DllCall("GetCurrentProcessId", "UInt"), controllerMarker, "UTF-8"
 } catch {
 }
 OnExit cleanupControllerMarker
@@ -325,8 +325,9 @@ jobWindowMatches(hwnd, workFile) {
 
 cleanupControllerMarker(exitReason, exitCode) {
     global controllerMarker
+    currentPid := DllCall("GetCurrentProcessId", "UInt")
     try {
-        if FileExist(controllerMarker) && Trim(FileRead(controllerMarker, "UTF-8")) = (A_Pid "")
+        if FileExist(controllerMarker) && Trim(FileRead(controllerMarker, "UTF-8")) = (currentPid "")
             FileDelete controllerMarker
     } catch {
     }
