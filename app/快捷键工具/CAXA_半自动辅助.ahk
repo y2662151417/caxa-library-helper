@@ -1,4 +1,5 @@
 ﻿#Requires AutoHotkey v2.0
+#ErrorStdOut UTF-8
 #Include %A_ScriptDir%\CAXA_标题匹配.ahk
 #Include %A_ScriptDir%\CAXA_视图断点.ahk
 #SingleInstance Force
