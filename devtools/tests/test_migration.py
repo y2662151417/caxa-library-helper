@@ -21,7 +21,7 @@ class MigrationCopyTests(unittest.TestCase):
             (source / "app" / "app.py").write_text("print('ok')\n", encoding="utf-8")
             (source / "logs").mkdir()
             (source / "logs" / "startup.log").write_text("legacy\n", encoding="utf-8")
-                "repository documentation\n",
+            (source / "logs" / "README.txt").write_text("repository documentation\n", encoding="utf-8")
             (source / "app" / "__pycache__").mkdir()
             (source / "app" / "__pycache__" / "temp.pyc").write_bytes(b"cache")
 
@@ -31,7 +31,7 @@ class MigrationCopyTests(unittest.TestCase):
             self.assertTrue((destination / "app" / "app.py").is_file())
             self.assertEqual(
                 (destination / "logs" / "README.txt").read_text(encoding="utf-8"),
-                "repository documentation\\n",
+                "repository documentation\n",
             )
             self.assertFalse((destination / "logs" / "startup.log").exists())
             self.assertFalse((destination / "app" / "__pycache__").exists())
