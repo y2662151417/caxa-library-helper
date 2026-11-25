@@ -5,8 +5,8 @@ rem Use the batch file's own folder. Do not rely on the caller's working directo
 pushd "%~dp0" >nul 2>&1
 if errorlevel 1 goto PATH_ERROR
 
-if not exist "logs\\" mkdir "logs" >nul 2>&1
-if not exist "logs\\" goto LOG_ERROR
+if not exist "logs\" mkdir "logs" >nul 2>&1
+if not exist "logs\" goto LOG_ERROR
 set "LOG=logs\startup.log"
 
 > "%LOG%" echo [START] %DATE% %TIME%
