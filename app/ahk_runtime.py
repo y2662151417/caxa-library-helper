@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import time
 import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -55,6 +56,35 @@ def runtime_directory(storage_dir: Optional[Path] = None) -> Path:
     root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
     return root / "runtime" / ("AutoHotkey_" + AHK_VERSION)
 
+
+def read_controller_pid(storage_dir: Optional[Path] = None) -> int:
+    """Read the AHK PID marker, accepting both legacy UTF-8 BOM and raw UTF-8."""
+    root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
+    marker = root / "ahk_controller.pid"
+    try:
+        raw = marker.read_text(encoding="utf-8-sig").strip()
+    except OSError:
+        return 0
+    if not raw or not raw.isascii() or not raw.isdecimal():
+        return 0
+    try:
+        pid = int(raw)
+    except ValueError:
+        return 0
+    return pid if pid > 0 else 0
+
+
+def _startup_diagnostics(root: Path) -> str:
+    parts = []
+    for path in (root / "ahk_controller_startup.log",
+                 root / "ahk_controller_marker_error.log"):
+        try:
+            detail = path.read_text(encoding="utf-8-sig", errors="replace").strip()
+        except OSError:
+            detail = ""
+        if detail:
+            parts.append(f"[{path}]\\n{detail[-2400:]}")
+    return "\\n".join(parts) or "没有捕获到启动错误文本。"
 
 def _valid_pe(path: Path, expected_name: str) -> bool:
     try:
@@ -190,8 +220,9 @@ def install_runtime(storage_dir: Optional[Path] = None, opener=None, machine: Op
 
 
 
+
 def launch_script(script: Path, storage_dir: Optional[Path] = None, popen=None):
-    """Launch one AHK script and capture startup syntax errors to a local log."""
+    """Launch AHK with a fresh log and remove any stale PID marker."""
     if not _is_windows():
         raise RuntimeError("CAXA 快捷控制器只能在 Windows 上运行。")
     script = Path(script).resolve()
@@ -200,11 +231,18 @@ def launch_script(script: Path, storage_dir: Optional[Path] = None, popen=None):
     root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
     exe = install_runtime(root)
     root.mkdir(parents=True, exist_ok=True)
+    marker = root / "ahk_controller.pid"
+    marker_error = root / "ahk_controller_marker_error.log"
     log_path = root / "ahk_controller_startup.log"
+    try:
+        marker.unlink(missing_ok=True)
+        marker_error.unlink(missing_ok=True)
+    except OSError as exc:
+        raise RuntimeError(f"无法清理旧的控制器标记文件：{exc}") from exc
     runner = popen or subprocess.Popen
     flags = getattr(subprocess, "DETACHED_PROCESS", 0x00000008) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
-    with log_path.open("ab") as log:
-        log.write((f"\n--- Launch {AHK_VERSION}: {script.name} ---\n").encode("utf-8"))
+    with log_path.open("wb") as log:
+        log.write((f"--- Launch AutoHotkey {AHK_VERSION}: {script.name} ---\\n").encode("utf-8"))
         log.flush()
         proc = runner(
             [str(exe), "/ErrorStdOut=UTF-8", str(script)],
@@ -219,32 +257,47 @@ def launch_script(script: Path, storage_dir: Optional[Path] = None, popen=None):
 
 def start_script_async(script: Path, callback: Optional[Callable[[bool, str], None]] = None,
                        storage_dir: Optional[Path] = None) -> threading.Thread:
-    """Download/verify, launch, and detect immediate AHK startup failure."""
+    """Prepare AHK, then wait for this exact process to register its PID marker."""
     def worker():
+        proc = None
         try:
-            proc = launch_script(script, storage_dir=storage_dir)
-            try:
-                return_code = proc.wait(timeout=1.0)
-            except subprocess.TimeoutExpired:
-                return_code = None
-            if return_code is not None:
-                root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
-                log_path = root / "ahk_controller_startup.log"
+            root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
+            proc = launch_script(script, storage_dir=root)
+            marker = root / "ahk_controller.pid"
+            deadline = time.monotonic() + 8.0
+            registered = False
+            while time.monotonic() < deadline:
+                return_code = proc.poll()
+                if return_code is not None:
+                    raise RuntimeError(
+                        f"AutoHotkey 进程启动后立即退出，退出代码 {return_code}。\\n"
+                        + _startup_diagnostics(root)
+                    )
+                if read_controller_pid(root) == proc.pid:
+                    registered = True
+                    break
+                time.sleep(0.1)
+            if not registered:
+                observed = read_controller_pid(root)
                 try:
-                    detail = log_path.read_text(encoding="utf-8", errors="replace")[-2400:].strip()
-                except OSError:
-                    detail = "启动日志无法读取。"
+                    if proc.poll() is None:
+                        proc.terminate()
+                        proc.wait(timeout=2.0)
+                except Exception:
+                    pass
                 raise RuntimeError(
-                    f"AutoHotkey 进程启动后立即退出，退出代码 {return_code}。\n"
-                    f"本机诊断日志：{log_path}\n{detail}"
+                    "AutoHotkey 进程仍在运行，但 8 秒内没有写入与本次进程 PID 匹配的控制器标记。\\n"
+                    f"本次进程 PID：{proc.pid}；标记文件 PID：{observed or '缺失/无效'}；"
+                    f"标记路径：{marker}\\n"
+                    + _startup_diagnostics(root)
                 )
-            message = f"AutoHotkey v{AHK_VERSION} 控制器进程已启动（PID {proc.pid}）；正在等待控制器登记。"
+            message = f"AutoHotkey v{AHK_VERSION} 控制器已注册，PID {proc.pid}。"
             ok = True
         except Exception as exc:
+            root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
             message = (
-                f"AutoHotkey v{AHK_VERSION} 准备或启动失败：{exc}\n\n"
-                "首次运行需要联网下载官方便携版（约 3.2 MB）；不需要安装或管理员权限。"
-                "如果公司网络阻止 GitHub 下载，请检查本机诊断日志。"
+                f"AutoHotkey v{AHK_VERSION} 控制器启动失败：{exc}\\n\\n"
+                "无需重新安装助手。请检查本机启动诊断日志；首次运行需要联网下载并校验官方便携版。"
             )
             ok = False
         if callback:
