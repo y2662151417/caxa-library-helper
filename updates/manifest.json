@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "app/ahk_runtime.py",
-      "size": 12744,
-      "sha256": "07e7543aada033964308cef8df74e427fe59e86f7ed05c5cb72abd19162a8150"
+      "size": 12736,
+      "sha256": "4561706f018f6b86590465b57fec551b933442d64cc7bba8e00589149ffd7aa7"
     },
     {
       "path": "app/app.py",
@@ -70,8 +70,8 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 66062,
-      "sha256": "a36f93ddc399d0e225593732f9a820e85e6c4ab357ca448c26250cdab4905373"
+      "size": 66061,
+      "sha256": "78334aae7956d6d75b25f8924b0b156323502002aefae3cf5597795980b63988"
     },
     {
       "path": "app/快捷键工具/CAXA_控件探针_只读.ahk",
@@ -100,8 +100,8 @@
     },
     {
       "path": "app/快捷键工具/说明_快捷操作.md",
-      "size": 2451,
-      "sha256": "7217f705db0c75d386dc8ec5521c77a4f47b17d46c37f3f1a345d89f41cb81d0"
+      "size": 2449,
+      "sha256": "6883993a4bd7115a4897eb3ac183a98d789331b4db5f577a029343ae7bd7521a"
     },
     {
       "path": "runtime/launcher.py",
