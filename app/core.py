@@ -36,6 +36,12 @@ def now():
 
 
 def storage_dir():
+    configured = os.environ.get('CAXA_HELPER_DATA_DIR', '').strip()
+    if configured:
+        path = Path(configured).expanduser()
+        if not path.is_absolute():
+            raise RuntimeError('CAXA_HELPER_DATA_DIR 必须是绝对路径。')
+        return path
     local = os.environ.get('LOCALAPPDATA')
     if os.name == 'nt' and local:
         return Path(local) / 'CAXA_Library_Helper'
