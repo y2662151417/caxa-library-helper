@@ -19,6 +19,9 @@ global jobFile := dataDir "\active_job.ini"
 global guardRunner := dataDir "\ahk_guard_runner.ini"
 global panelActionFile := dataDir "\panel_action.ini"
 global panelActionSeen := ""
+global galleryFillPendingSignature := ""
+global galleryFillPendingSince := 0
+global galleryDialogNoticeShown := false
 global calibrationBusy := false
 global controllerMarker := dataDir "\ahk_controller.pid"
 global cadExe := IniRead(cfgFile, "cad", "process", "")
@@ -45,6 +48,7 @@ global captureSeen := ""
 global paramBusy := false
 SetTimer ParamCapturePoll, 1100
 SetTimer PanelActionPoll, 250
+SetTimer GalleryDialogPoll, 500
 try {
     if FileExist(controllerMarker)
         FileDelete controllerMarker
@@ -476,8 +480,7 @@ PanelActionPoll() {
             else
                 autoTip("当前任务没有对应的视图引导记录")
         } else if action = "define_symbol" {
-            if activateGuideMainWindow(signature)
-                safeClick("define", "定义图符")
+            startSymbolDefinition(signature)
         } else if action = "edit_symbol_attributes" {
             if activateCalibratedWindowForJob("attrEdit", signature)
                 safeClick("attrEdit", "属性编辑")
@@ -485,8 +488,14 @@ PanelActionPoll() {
             if activateCalibratedWindowForJob("attrFill", signature)
                 safeClick("attrFill", "填入当前标题栏属性值")
         } else if action = "finish_gallery_insert" {
-            if guideSignature != signature || guideItems.Length = 0 || guideIndex <= guideItems.Length {
-                autoTip("全部视图尚未人工确认；拒绝完成入库")
+            if guideSignature != signature || !guideMainHwnd || !WinExist("ahk_id " guideMainHwnd) {
+                autoTip("当前图符定义任务与工作副本不一致；拒绝完成入库")
+                return
+            }
+            workFile := IniRead(jobFile, "active", "working_file", "")
+            mainHwnd := findUniqueWorkWindow(workFile)
+            if !mainHwnd || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
+                autoTip("未找到当前任务对应的唯一工作副本；拒绝完成入库")
                 return
             }
             if IniRead(jobFile, "active", "block_name_status", "") != "已匹配"
@@ -498,8 +507,9 @@ PanelActionPoll() {
             nameControl := IniRead(cfgFile, "symbolNameField", "control", "")
             nameWindow := findUniqueCalibratedWindow("symbolNameField")
             finishWindow := findUniqueCalibratedWindow("galleryFinish")
-            if nameControl = "" || !nameWindow || !finishWindow || nameWindow != finishWindow {
-                autoTip("图符名称框与完成按钮未绑定到同一入库窗口；拒绝提交")
+            if nameControl = "" || !nameWindow || !finishWindow || nameWindow != finishWindow
+              || WinGetPID("ahk_id " nameWindow) != WinGetPID("ahk_id " mainHwnd) {
+                autoTip("图符名称框与完成按钮未绑定到当前工作副本的同一入库窗口；拒绝提交")
                 return
             }
             try {
@@ -532,6 +542,156 @@ PanelActionPoll() {
     }
 }
 
+
+; Start the native CAXA multi-view symbol-definition command.
+; CAXA prompts for the view count, then owns the per-view selection/basepoint sequence.
+; The helper supplies only the count from the signed workbench plan; it never selects geometry.
+startSymbolDefinition(expectedSignature) {
+    global jobFile, cadExe, guideSignature, guideMainHwnd, guideFilename, guideWorkFile, guidePlan
+    global guideItems, guideIndex, galleryFillPendingSignature, galleryFillPendingSince, galleryDialogNoticeShown, isPaused
+    if isPaused {
+        autoTip("CAD 辅助已暂停；未启动定义图符")
+        return false
+    }
+    if cadExe = "" || !FileExist(jobFile) {
+        autoTip("尚未连接 CAXA 或没有已发布的图纸任务")
+        return false
+    }
+    sig := IniRead(jobFile, "active", "job_signature", "")
+    if sig = "" || sig != expectedSignature {
+        autoTip("当前图纸任务签名不一致；拒绝启动定义图符")
+        return false
+    }
+    fullName := IniRead(jobFile, "active", "filename", "")
+    requested := IniRead(jobFile, "active", "view_plan", "")
+    workFile := IniRead(jobFile, "active", "working_file", "")
+    if fullName = "" || requested = "" || workFile = "" {
+        autoTip("当前任务缺少图纸名称、视图计划或工作副本")
+        return false
+    }
+    parts := StrSplit(requested, "|")
+    if parts.Length < 1 || parts.Length > 6 {
+        autoTip("当前视图计划无效；Symdef 只接受 1–6 个视图")
+        return false
+    }
+    for item in parts {
+        if Trim(item) = "" {
+            autoTip("视图计划包含空项目；请回工作台修正后再启动")
+            return false
+        }
+    }
+    if galleryFillPendingSignature != "" {
+        if MsgBox("已有一个图符定义会话尚未结束。`n`n如果 CAXA 仍在等待选择视图，请选【否】返回继续；如果你已经在 CAXA 按 Esc 取消了旧命令，请选【是】清除旧会话并重新开始。", "已有定义会话", "YesNo Icon? Default2") != "Yes"
+            return false
+    }
+    clearGuideState()
+    hwnd := activatePublishedWorkWindow(workFile)
+    if !hwnd || !cadOk(true) || WinGetID("A") != hwnd || !jobWindowMatches(hwnd, workFile) {
+        autoTip("无法唯一激活当前 CAXA 工作副本；未启动定义图符")
+        return false
+    }
+    if !verifyBeforeAction(sig) {
+        autoTip("当前任务安全校验未通过；未启动定义图符")
+        return false
+    }
+    if !cadOk(true) || WinGetID("A") != hwnd || !jobWindowMatches(hwnd, workFile)
+      || !FileExist(jobFile) || IniRead(jobFile, "active", "job_signature", "") != sig {
+        autoTip("校验期间活动图纸或窗口发生变化；已取消定义图符")
+        return false
+    }
+    ; Keep the exact job/window context for later attribute and gallery actions.
+    guideMainHwnd := hwnd
+    guideSignature := sig
+    guideFilename := fullName
+    guideWorkFile := workFile
+    guidePlan := requested
+    guideItems := []
+    guideIndex := 0
+    SendText "symdef"
+    Send "{Enter}"
+    Sleep 450
+    ; Symdef should now be waiting for its view count. Recheck the live task before typing it.
+    if !verifyBeforeAction(sig) || !cadOk(true) || WinGetID("A") != hwnd
+      || !jobWindowMatches(hwnd, workFile)
+      || !FileExist(jobFile) || IniRead(jobFile, "active", "job_signature", "") != sig {
+        clearGuideState()
+        autoTip("Symdef 已启动，但第二次校验未通过；请在 CAXA 按 Esc 取消当前命令")
+        return false
+    }
+    countText := String(parts.Length)
+    SendText countText
+    Send "{Enter}"
+    galleryFillPendingSignature := sig
+    galleryFillPendingSince := A_TickCount
+    galleryDialogNoticeShown := false
+    autoTip("已启动 CAXA Symdef，视图数：" countText "。按提示逐项框选、右键确认并指定基点；最后一项完成后将自动打开图符入库窗口")
+    return true
+}
+
+; When Symdef opens the gallery dialog, fill the exact mapped name once if the
+; name field was calibrated. No category selection, attribute submission or final click occurs here.
+GalleryDialogPoll() {
+    global galleryFillPendingSignature, galleryFillPendingSince, galleryDialogNoticeShown, jobFile, cadExe
+    signature := galleryFillPendingSignature
+    if signature = "" || cadExe = "" || !FileExist(jobFile)
+        return
+    try {
+        if IniRead(jobFile, "active", "job_signature", "") != signature {
+            galleryFillPendingSignature := ""
+            galleryFillPendingSince := 0
+            galleryDialogNoticeShown := false
+            return
+        }
+        if A_TickCount - galleryFillPendingSince > 1800000 {
+            galleryFillPendingSignature := ""
+            galleryFillPendingSince := 0
+            galleryDialogNoticeShown := false
+            return
+        }
+        blockStatus := IniRead(jobFile, "active", "block_name_status", "未导入块名称清单")
+        blockName := IniRead(jobFile, "active", "block_name", "")
+        if blockStatus != "已匹配" || blockName = "" {
+            if !galleryDialogNoticeShown {
+                autoTip("图符入库窗口将使用人工填写名称；正式块名称尚未按完整图号匹配")
+                galleryDialogNoticeShown := true
+            }
+            galleryFillPendingSignature := ""
+            galleryFillPendingSince := 0
+            return
+        }
+        workFile := IniRead(jobFile, "active", "working_file", "")
+        mainHwnd := findUniqueWorkWindow(workFile)
+        if !mainHwnd
+            return
+        pid := WinGetPID("ahk_id " mainHwnd)
+        dialogHwnd := findUniqueCalibrationDialog(pid, mainHwnd, "图符入库")
+        if !dialogHwnd
+            return
+        nameWindow := findUniqueCalibratedWindow("symbolNameField")
+        if !nameWindow || nameWindow != dialogHwnd {
+            if !galleryDialogNoticeShown {
+                autoTip("已进入图符入库；名称框尚未校准。请手动填写，或在设置中完成一次名称框校准")
+                galleryDialogNoticeShown := true
+            }
+            return
+        }
+        if WinGetPID("ahk_id " nameWindow) != pid
+            return
+        if !verifyBeforeAction(signature) {
+            galleryFillPendingSignature := ""
+            galleryFillPendingSince := 0
+            return
+        }
+        galleryFillPendingSignature := ""
+        galleryFillPendingSince := 0
+        galleryDialogNoticeShown := false
+        fillSymbolNameField(true, signature)
+    } catch as e {
+        galleryFillPendingSignature := ""
+        galleryFillPendingSince := 0
+        autoTip("图符入库名称自动填写未执行：" e.Message "；请手动核对")
+    }
+}
 
 ; Activate the exact work-copy window for panel-driven guide actions.
 activateGuideMainWindow(expectedSignature) {
@@ -1172,6 +1332,7 @@ persistGuideCheckpoint() {
 clearGuideState() {
     global guideItems, guideIndex, guideFilename, guideSignature, guideMainHwnd
     global guideWorkFile, guidePlan, guideCheckpointFile
+    global galleryFillPendingSignature, galleryFillPendingSince, galleryDialogNoticeShown
     guideMainHwnd := 0
     guideItems := []
     guideIndex := 0
@@ -1179,6 +1340,9 @@ clearGuideState() {
     guideSignature := ""
     guideWorkFile := ""
     guidePlan := ""
+    galleryFillPendingSignature := ""
+    galleryFillPendingSince := 0
+    galleryDialogNoticeShown := false
     if !guideCheckpointClear(guideCheckpointFile)
         autoTip("引导已清除，但本地断点文件未能删除；下次恢复前须核对")
 }
