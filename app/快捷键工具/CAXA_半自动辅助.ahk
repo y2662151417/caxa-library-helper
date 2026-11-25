@@ -55,7 +55,7 @@ try {
         FileDelete controllerMarker
     FileAppend DllCall("GetCurrentProcessId", "UInt"), controllerMarker, "UTF-8-RAW"
 } catch as e {
-    try FileAppend "[AHK_STARTUP_ERROR] 无法写入控制器 PID 标记：" e.Message "`n", dataDir "\\ahk_controller_marker_error.log", "UTF-8-RAW"
+    try FileAppend "[AHK_STARTUP_ERROR] 无法写入控制器 PID 标记：" e.Message "`n", dataDir "\ahk_controller_marker_error.log", "UTF-8-RAW"
 }
 OnExit cleanupControllerMarker
 
