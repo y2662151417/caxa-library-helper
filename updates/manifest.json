@@ -1,12 +1,12 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
       "path": "app/ahk_runtime.py",
-      "size": 9325,
-      "sha256": "8568639f2e7c3ca1f63d8d04fbadf78d4537858a3acb43a3770cdd965fff3d58"
+      "size": 9582,
+      "sha256": "f03575a33bcfbe054cdf1c39cf8c309717420fffc0c0d4ef01c04c471900d417"
     },
     {
       "path": "app/app.py",
@@ -25,8 +25,8 @@
     },
     {
       "path": "app/core.py",
-      "size": 45483,
-      "sha256": "d1c63963cc5dbe01168db38892c16294b9dc99a9111efd07474b5f4aa3190555"
+      "size": 45750,
+      "sha256": "a8ddde8acf5cf9e75d464f4ae874e0e4aa9f9e5a8d7f84028f6b3bfec124a0f8"
     },
     {
       "path": "app/floating_panel.py",
@@ -70,8 +70,8 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 58346,
-      "sha256": "b94f9bfb834da56cfc4ebf18603deac04ef4f74499443e5c6d8db9af69638041"
+      "size": 58408,
+      "sha256": "2ebba8a76938ac04a25270d451596ab1763f3fba9de839b8f5c707465dc87eb2"
     },
     {
       "path": "app/快捷键工具/CAXA_控件探针_只读.ahk",
@@ -105,8 +105,8 @@
     },
     {
       "path": "runtime/launcher.py",
-      "size": 2069,
-      "sha256": "eea2a1f18d73d2ad4efa7afd1315077e08b59233722935ba8a142b1615d4095a"
+      "size": 2815,
+      "sha256": "31cf61bcfbd752c5e7792074143327d7a013390354b9783cee69ee8a282cbea9"
     },
     {
       "path": "runtime/updater.py",
