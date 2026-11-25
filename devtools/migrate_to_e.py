@@ -253,7 +253,7 @@ def check_helper_is_stopped(source_repo: Path, source_data: Path) -> None:
     marker = source_data / "ahk_controller.pid"
     if marker.is_file():
         try:
-            pid = int(marker.read_text(encoding="utf-8").strip())
+            pid = int(marker.read_text(encoding="utf-8-sig").strip())
         except (OSError, ValueError) as exc:
             raise MigrationError(
                 "无法读取 AutoHotkey 控制器状态标记。请先关闭 CAXA 助手和浮动面板，再重试。"
