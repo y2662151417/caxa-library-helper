@@ -1,6 +1,6 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.42.0",
+  "version": "0.42.1",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
@@ -30,8 +30,8 @@
     },
     {
       "path": "app/floating_panel.py",
-      "size": 55041,
-      "sha256": "c323ca567f73146a54ae9efc6c0b461deff7f68d27c2eab67512ed7d33424ba5"
+      "size": 55925,
+      "sha256": "5ac97344fc8333d24d273e41dc2ac873e6e946f2e43e652306ebc8c62f5e4cf6"
     },
     {
       "path": "app/guided.py",
@@ -116,7 +116,7 @@
     {
       "path": "app/VERSION.txt",
       "size": 7,
-      "sha256": "6c17554dba43398fe2fba3e3c6fa2dac4695faa18b6e61aa72342cdc56fe7852"
+      "sha256": "d8b0876e7932991a8fc74df0ab19676d7ab66e34cbb63cf2299d02993ceb8caf"
     },
     {
       "path": "README.md",
