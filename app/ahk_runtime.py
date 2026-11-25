@@ -189,40 +189,62 @@ def install_runtime(storage_dir: Optional[Path] = None, opener=None, machine: Op
         shutil.rmtree(staging, ignore_errors=True)
 
 
+
 def launch_script(script: Path, storage_dir: Optional[Path] = None, popen=None):
-    """Launch one AHK script with the managed portable interpreter."""
+    """Launch one AHK script and capture startup syntax errors to a local log."""
     if not _is_windows():
         raise RuntimeError("CAXA 快捷控制器只能在 Windows 上运行。")
     script = Path(script).resolve()
     if not script.is_file():
         raise FileNotFoundError(str(script))
-    exe = install_runtime(storage_dir)
+    root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
+    exe = install_runtime(root)
+    root.mkdir(parents=True, exist_ok=True)
+    log_path = root / "ahk_controller_startup.log"
     runner = popen or subprocess.Popen
     flags = getattr(subprocess, "DETACHED_PROCESS", 0x00000008) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
-    return runner(
-        [str(exe), str(script)],
-        cwd=str(script.parent),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        creationflags=flags,
-        close_fds=True,
-    )
-
+    with log_path.open("ab") as log:
+        log.write((f"\n--- Launch {AHK_VERSION}: {script.name} ---\n").encode("utf-8"))
+        log.flush()
+        proc = runner(
+            [str(exe), "/ErrorStdOut=UTF-8", str(script)],
+            cwd=str(script.parent),
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            creationflags=flags,
+            close_fds=True,
+        )
+    return proc
 
 def start_script_async(script: Path, callback: Optional[Callable[[bool, str], None]] = None,
                        storage_dir: Optional[Path] = None) -> threading.Thread:
-    """Download/verify if needed and launch without blocking the Tk event loop."""
+    """Download/verify, launch, and detect immediate AHK startup failure."""
     def worker():
         try:
             proc = launch_script(script, storage_dir=storage_dir)
-            message = f"AutoHotkey v{AHK_VERSION} 控制器已启动（PID {proc.pid}）。"
+            try:
+                return_code = proc.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                return_code = None
+            if return_code is not None:
+                root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
+                log_path = root / "ahk_controller_startup.log"
+                try:
+                    detail = log_path.read_text(encoding="utf-8", errors="replace")[-2400:].strip()
+                except OSError:
+                    detail = "启动日志无法读取。"
+                raise RuntimeError(
+                    f"AutoHotkey 进程启动后立即退出，退出代码 {return_code}。\n"
+                    f"本机诊断日志：{log_path}\n{detail}"
+                )
+            message = f"AutoHotkey v{AHK_VERSION} 控制器进程已启动（PID {proc.pid}）；正在等待控制器登记。"
             ok = True
         except Exception as exc:
             message = (
                 f"AutoHotkey v{AHK_VERSION} 准备或启动失败：{exc}\n\n"
                 "首次运行需要联网下载官方便携版（约 3.2 MB）；不需要安装或管理员权限。"
-                "如果公司网络阻止 GitHub 下载，请让 IT 放行官方 AutoHotkey 发布地址。"
+                "如果公司网络阻止 GitHub 下载，请检查本机诊断日志。"
             )
             ok = False
         if callback:
