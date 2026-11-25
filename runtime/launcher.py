@@ -35,7 +35,7 @@ def write_log(message: str) -> None:
     try:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         with (LOG_DIR / "launcher.log").open("a", encoding="utf-8") as stream:
-            stream.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\\n")
+            stream.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
     except OSError:
         pass
 
