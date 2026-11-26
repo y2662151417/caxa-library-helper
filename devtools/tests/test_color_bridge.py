@@ -35,7 +35,7 @@ class ColorBridgeTests(unittest.TestCase):
                                             target_layer='中心线层\\n[bad]')
 
     def test_layer_visibility_actions_are_allowlisted(self):
-        for action in ('open_layer_manager', 'open_all_layers'):
+        for action in ('open_layer_manager', 'open_all_layers', 'check_active_drawing'):
             with self.subTest(action=action), tempfile.TemporaryDirectory() as directory:
                 path = bridge.request_panel_action(Path(directory), action, 'e' * 64)
                 config = configparser.ConfigParser(interpolation=None)
