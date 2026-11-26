@@ -11,8 +11,8 @@ Persistent
 ; Requires company IT approval for AHK and local diagnostics logs.
 global dataDir := EnvGet("CAXA_HELPER_DATA_DIR")
 if dataDir = ""
-    dataDir := EnvGet("LOCALAPPDATA") "\\CAXA_Library_Helper"
-global cfgFile := dataDir "\\cad_buttons.ini"
+    dataDir := EnvGet("LOCALAPPDATA") "\CAXA_Library_Helper"
+global cfgFile := dataDir "\cad_buttons.ini"
 global cadExe := ""
 try cadExe := IniRead(cfgFile, "cad", "process", "")
 
