@@ -168,11 +168,49 @@ def _download_archive(destination: Path, opener=None) -> str:
     return actual
 
 
+def _install_bundled_runtime(storage_dir: Optional[Path] = None,
+                            machine: Optional[str] = None) -> Optional[Path]:
+    """Copy the package's hash-pinned AHK runtime without requiring network access."""
+    install_root = os.environ.get("CAXA_INSTALL_ROOT", "").strip()
+    if not install_root:
+        return None
+    name = executable_name(machine)
+    bundled = Path(install_root) / "runtime" / "vendor" / ("AutoHotkey_" + AHK_VERSION)
+    source = bundled / name
+    sidecar = bundled / (name + ".sha256")
+    try:
+        expected = sidecar.read_text(encoding="ascii").strip().lower()
+        if (len(expected) != 64 or not _valid_pe(source, name)
+                or _sha256_file(source) != expected):
+            return None
+        folder = runtime_directory(storage_dir)
+        folder.mkdir(parents=True, exist_ok=True)
+        target = folder / name
+        staged = folder / (name + ".new")
+        shutil.copyfile(source, staged)
+        if _sha256_file(staged) != expected or not _valid_pe(staged, name):
+            staged.unlink(missing_ok=True)
+            return None
+        os.replace(staged, target)
+        license_source = bundled / "license.txt"
+        if license_source.is_file():
+            shutil.copy2(license_source, folder / "license.txt")
+        marker_tmp = folder / "runtime-version.txt.tmp"
+        marker_tmp.write_text(AHK_VERSION + "\n" + expected + "\n", encoding="ascii")
+        os.replace(marker_tmp, folder / "runtime-version.txt")
+        return target
+    except (OSError, ValueError):
+        return None
+
+
 def install_runtime(storage_dir: Optional[Path] = None, opener=None, machine: Optional[str] = None) -> Path:
-    """Install official portable AHK into the user's data directory."""
+    """Install the hash-pinned bundled AHK runtime, falling back to official download."""
     cached = cached_runtime(storage_dir, machine)
     if cached:
         return cached
+    bundled = _install_bundled_runtime(storage_dir, machine)
+    if bundled:
+        return bundled
     name = executable_name(machine)
     folder = runtime_directory(storage_dir)
     folder.parent.mkdir(parents=True, exist_ok=True)
