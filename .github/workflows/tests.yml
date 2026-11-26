@@ -55,3 +55,26 @@ jobs:
             if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr }
             if ($process.ExitCode -ne 0) { throw "AutoHotkey v2 parse check failed for $script with exit code $($process.ExitCode)" }
           }
+
+  isolated-test-package:
+    needs: [tests, ahk-syntax]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build and validate isolated test ZIP
+        run: python devtools/release/build_test_package.py --output-dir dist
+      - name: Upload test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: CAXA-Library-Helper-v0.42.16-Isolated-Test
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+
