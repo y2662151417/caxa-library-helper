@@ -670,6 +670,12 @@ startSymbolDefinition(expectedSignature) {
 ; It does not activate windows, send CAD keys, click controls, or read control text.
 probeCaxaControls(expectedSignature) {
     global jobFile, cadExe, dataDir, isPaused
+    outputDir := dataDir "\diagnostics"
+    try DirCreate outputDir
+    catch as e {
+        autoTip("无法创建只读诊断目录：" e.Message)
+        return false
+    }
     if isPaused {
         autoTip("CAD 辅助已暂停；只读诊断未启动")
         return false
@@ -872,8 +878,6 @@ probeCaxaControls(expectedSignature) {
             }
         }
 
-        outputDir := dataDir "\diagnostics"
-        DirCreate outputDir
         file := outputDir "\controls_all_" FormatTime(A_Now, "yyyyMMdd_HHmmss")
             . "_" A_TickCount ".txt"
         FileAppend result, file, "UTF-8"
