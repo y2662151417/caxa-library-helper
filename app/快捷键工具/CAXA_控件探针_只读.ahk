@@ -16,6 +16,10 @@ global cfgFile := dataDir "\cad_buttons.ini"
 global cadExe := ""
 try cadExe := IniRead(cfgFile, "cad", "process", "")
 
+; CI parses this complete script and exits without registering an interactive probe.
+if A_Args.Length && A_Args[1] = "--syntax-check"
+    ExitApp 0
+
 #HotIf isConfiguredCaxaForeground()
 F2::{
     try {
