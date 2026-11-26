@@ -214,7 +214,7 @@ def build_test_package(repo_root: Path, output_dir: Path) -> tuple[Path, Path]:
             raise ValueError("The package launcher still references stable user data.")
 
     digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
-    checksum_path.write_text(f"{digest}  {zip_path.name}\n", encoding="ascii")
+    checksum_path.write_text(f"{digest}  {zip_path.name}\n", encoding="utf-8")
     return zip_path, checksum_path
 
 
