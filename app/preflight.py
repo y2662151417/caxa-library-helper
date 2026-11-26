@@ -94,12 +94,13 @@ def _validate_published_job(c, original: bytes, expected_signature: str | None =
         raise ValueError('missing source path / view plan')
     plan = tuple(plan_string.split('|'))
     drawing = validate_handoff(c, path, plan)
+    # Use the database's canonical production order: all dimensioned views,
+    # followed by all no-dimension views. This must match App.get_view_plan()
+    # and the signed order sent to the AutoHotkey controller.
     expected_plan = tuple(
-        f"{view}·{kind}" for view in core.VIEW_TYPES
-        for kind in ('带尺寸', '无尺寸')
+        f"{slot['view_type']}·{slot['size_kind']}"
         for slot in core.slots_for(c, path)
-        if slot['view_type'] == view and slot['size_kind'] == kind
-        and slot['status'] != '不需要')
+        if slot['status'] != '不需要')
     if plan != expected_plan:
         raise ValueError('view order changed')
     block_info=core.block_name_for_path(c,path)
