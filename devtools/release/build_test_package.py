@@ -27,9 +27,11 @@ def _copy_tree(source: Path, destination: Path) -> None:
     for item in sorted(source.rglob("*")):
         if item.is_symlink():
             raise ValueError(f"Refusing to package a symbolic link: {item}")
+        relative = item.relative_to(source)
+        if "__pycache__" in relative.parts or item.suffix.lower() == ".pyc":
+            continue
         if any(part in FORBIDDEN_PARTS for part in item.relative_to(source.parent).parts):
             raise ValueError(f"Refusing to package a forbidden path: {item}")
-        relative = item.relative_to(source)
         target = destination / relative
         if item.is_dir():
             target.mkdir(parents=True, exist_ok=True)
