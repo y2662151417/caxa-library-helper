@@ -555,8 +555,8 @@ startSymbolDefinition(expectedSignature) {
         autoTip("CAD 辅助已暂停；未启动定义图符")
         return false
     }
-    if cadExe = "" || !FileExist(jobFile) {
-        autoTip("尚未连接 CAXA 或没有已发布的图纸任务")
+    if !FileExist(jobFile) {
+        autoTip("没有已发布的图纸任务；请先在图纸管理中选择并打开工作副本")
         return false
     }
     sig := IniRead(jobFile, "active", "job_signature", "")
@@ -572,13 +572,22 @@ startSymbolDefinition(expectedSignature) {
         return false
     }
     parts := StrSplit(requested, "|")
-    if parts.Length < 1 || parts.Length > 6 {
-        autoTip("当前视图计划无效；Symdef 只接受 1–6 个视图")
+    if parts.Length != 4 && parts.Length != 6 {
+        autoTip("当前视图计划无效；本工具只接受双视图4项或三视图6项")
         return false
     }
     for item in parts {
         if Trim(item) = "" {
             autoTip("视图计划包含空项目；请回工作台修正后再启动")
+            return false
+        }
+    }
+    ; Bind CAXA on first use from the exact published work-copy window.
+    ; The one-time confirmation replaces a separate mandatory connect-button step.
+    if cadExe = "" || !findUniqueWorkWindow(workFile) {
+        bindCadForPublishedJob(sig)
+        if cadExe = "" {
+            autoTip("尚未连接到当前工作副本；请确认 CAXA 已打开该 EXB 后重试")
             return false
         }
     }
@@ -626,7 +635,7 @@ startSymbolDefinition(expectedSignature) {
     galleryFillPendingSignature := sig
     galleryFillPendingSince := A_TickCount
     galleryDialogNoticeShown := false
-    autoTip("已启动 CAXA Symdef，视图数：" countText "。按提示逐项框选、右键确认并指定基点；最后一项完成后将自动打开图符入库窗口")
+    autoTip("已启动 CAXA Symdef（" countText "项）。在 CAXA 中依次框选每组视图并指定各自基点；CAXA 会自动衔接下一组，不必返回助手点击“下一视图”。最后一组完成后自动打开图符入库窗口，已校准的正式名称框会自动填名")
     return true
 }
 
