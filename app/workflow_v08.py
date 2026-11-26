@@ -66,7 +66,9 @@ def safe_color_plan(profile:dict, *, selection_confirmed:bool, include_titlebloc
         'linetype_scale':r.get('linetype_scale'),
         'target_color':r.get('target_color'),
         'layer_properties_source':'当前 CAXA 图纸中预先配置的目标图层特性',
-        'selection_scope':'操作员确认的机械视图区域（排除标题栏、图框和尺寸对象）',
+        'target_properties':{'layer':r['target_layer'],'color':'ByLayer','linetype':'ByLayer','lineweight':'ByLayer'},
+        'selection_method':'CAXA Ctrl+A；按当前拾取过滤条件选择',
+        'selection_scope':'操作员检查确认的机械视图对象；排除标题栏、图框和尺寸对象',
         'execution_status':'待CAXA实机验证；不可直接声称已执行',
     } for r in rules]
 
@@ -91,11 +93,12 @@ def color_rule_instruction(rule:dict)->str:
         'CAXA 命令：objectset（拾取过滤设置）\n'
         f"目标图层：{rule['target_layer']}\n"
         '目标颜色、线型和线宽：使用当前 CAXA 图纸中该图层预先配置的特性\n\n'
-        '1. 在 CAXA 拾取过滤中选择上述源颜色。\n'
-        '2. 只框选当前机械视图区域，排除图框、标题栏、尺寸和其他颜色组。\n'
-        '3. 点击助手的“应用目标图层”；助手通过已校准的图层下拉框写入目标图层名称并读回核对。\n'
-        '4. 检查图面颜色和线型是否符合目标图层特性，再恢复拾取过滤。\n\n'
-        '注意：对象颜色或线型若被显式指定而不是 ByLayer，仅改变图层归属未必会继承图层特性；首次必须用测试图验证。助手不会自动保存图纸。'
+        '1. 在 CAXA 拾取过滤中选择上述源颜色，并关闭过滤设置对话框。\n'
+        '2. 点击助手“自动选中过滤对象”；助手发送 Ctrl+A，CAXA 按当前拾取过滤条件选中对象。\n'
+        '3. 检查高亮范围。若包含标题栏、图框、尺寸或其他不应修改的对象，按 Esc 取消，再保持颜色过滤并手动框选机械视图区域。\n'
+        '4. 确认选集正确后，点击“应用目标图层”；助手依次将颜色、线型、线宽设为 ByLayer，最后设置目标图层，并逐项读回核对。\n'
+        '5. 检查图面效果，再恢复拾取过滤。助手不会自动保存图纸。\n\n'
+        '注意：Ctrl+A 会选择当前过滤条件允许拾取的全部对象，并不会自动识别机械视图边界；必须先检查高亮范围。'
     )
 
 
@@ -103,10 +106,10 @@ def color_filter_execution_cautions(profile:dict)->list[str]:
     """Safety notes for color filtering and target-layer assignment."""
     profiles.validate(profile)
     return [
-        'CAXA 拾取过滤中的实体、尺寸、图层、颜色和线型条件为交集；每次开始前应确认没有残留过滤条件。',
-        '目标图层的颜色、线型和线宽应预先在 CAXA 图纸中设置；助手日常只写入目标图层名称。',
-        '对象颜色或线型若为显式值而非 ByLayer，移动到目标图层后未必继承图层特性；首次必须用虚构测试图核验。',
-        '只允许框选当前机械视图区域；排除标题栏、图框、尺寸对象和不能更改的中心线。',
+        'CAXA 拾取过滤中的实体、尺寸、图层、颜色和线型条件为交集；开始前应确认只保留本次需要的源颜色条件。',
+        'CAXA 的 Ctrl+A 会受当前拾取过滤条件影响，但会选择全图范围内所有符合条件的对象，不会自动识别机械视图边界。',
+        '目标图层的颜色、线型和线宽应预先在 CAXA 图纸中设置；助手会把选中对象的颜色、线型、线宽设为 ByLayer，再设置目标图层。',
+        '执行前必须检查高亮范围；若标题栏、图框、尺寸、文字、块或其他不应修改的对象被选中，按 Esc 取消，改用当前过滤条件下的局部框选。',
         '助手无法仅凭当前选集证明对象范围正确；应用前必须由操作员确认，应用后仍需检查图面。',
         '每组完成后应恢复拾取过滤默认状态；助手不自动保存工作副本。',
     ]
