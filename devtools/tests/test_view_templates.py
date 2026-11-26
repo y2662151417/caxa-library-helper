@@ -14,7 +14,7 @@ class ViewTemplateTests(unittest.TestCase):
         self.assertEqual(len(selected) * 2, 6)
         self.assertEqual(
             core.view_template_summary(selected),
-            '主视图、俯视图、左视图｜带尺寸/无尺寸，共 6 个版本'
+            '默认方案：主视图、俯视图、左视图｜带尺寸/无尺寸，共 6 个版本'
         )
 
     def test_front_and_left_template_creates_four_variants(self):
