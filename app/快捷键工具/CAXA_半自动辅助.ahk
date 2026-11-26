@@ -1232,10 +1232,11 @@ selectFilteredObjects(expectedSignature) {
     }
 }
 
-; Set all four object properties on the operator-confirmed selection.
-; ByLayer is applied before the target layer so explicit overrides are cleared
-; and the final appearance comes from the preconfigured target layer.
-; No drawing save or selection is performed here.
+; Request all four property changes on the operator-confirmed selection.
+; ByLayer is applied before the target layer so explicit overrides can be cleared
+; and the final appearance can come from the preconfigured target layer.
+; Combo read-back verifies the UI field value only; the entity result still
+; requires visual/property inspection in CAXA. No save or selection is performed.
 applyColorLayer(expectedSignature, targetLayer) {
     global jobFile, cadExe, cfgFile, isPaused
     if isPaused {
@@ -1329,7 +1330,7 @@ applyColorLayer(expectedSignature, targetLayer) {
                 return false
             }
         }
-        autoTip("已将选集颜色、线型、线宽设为 ByLayer，并归入【" targetLayer "】；四项均已读回核对。请检查图面，未自动保存")
+        autoTip("已向当前选集的四个属性下拉框写入 ByLayer/【" targetLayer "】，四个控件显示值均已读回。请检查实体实际属性与图面效果；未自动保存")
         return true
     } catch as e {
         autoTip("颜色归层未完成：" e.Message)
