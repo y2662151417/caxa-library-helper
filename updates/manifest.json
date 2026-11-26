@@ -1,6 +1,6 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.42.3",
+  "version": "0.42.4",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
@@ -51,7 +51,8 @@
     {
       "path": "app/resources/图库模板_示例.json",
       "size": 1312,
-      "sha256": "0c0280642f4d5dbba31a24407d89a555e21f0b224a7b2a8ab97eea08870c4c4a"
+      "sha256": "0c0280642f4d5dbba31a24407d89a555e21f0b224a7b2a8ab97eea08870c4c4a",
+      "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/resources/%E5%9B%BE%E5%BA%93%E6%A8%A1%E6%9D%BF_%E7%A4%BA%E4%BE%8B.json"
     },
     {
       "path": "app/router_v11.py",
@@ -71,37 +72,44 @@
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
       "size": 66061,
-      "sha256": "78334aae7956d6d75b25f8924b0b156323502002aefae3cf5597795980b63988"
+      "sha256": "78334aae7956d6d75b25f8924b0b156323502002aefae3cf5597795980b63988",
+      "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E5%8D%8A%E8%87%AA%E5%8A%A8%E8%BE%85%E5%8A%A9.ahk"
     },
     {
       "path": "app/快捷键工具/CAXA_控件探针_只读.ahk",
       "size": 3837,
-      "sha256": "4468d8caf0451d3b2acfdebe2217047ab9a01b0f34fee15725e1b8c601e71dfe"
+      "sha256": "4468d8caf0451d3b2acfdebe2217047ab9a01b0f34fee15725e1b8c601e71dfe",
+      "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E6%8E%A7%E4%BB%B6%E6%8E%A2%E9%92%88_%E5%8F%AA%E8%AF%BB.ahk"
     },
     {
       "path": "app/快捷键工具/CAXA_标题匹配.ahk",
       "size": 1343,
-      "sha256": "b8ec7d8aac59a9d444de2b2f9dd3fbd81eb6f3adba1e96a40dd016f7ff33249f"
+      "sha256": "b8ec7d8aac59a9d444de2b2f9dd3fbd81eb6f3adba1e96a40dd016f7ff33249f",
+      "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E6%A0%87%E9%A2%98%E5%8C%B9%E9%85%8D.ahk"
     },
     {
       "path": "app/快捷键工具/CAXA_视图断点.ahk",
       "size": 2298,
-      "sha256": "8bb8208f40004d6354fb6e08a84ed56dddde56c2962bc61de6bc5b2510f86306"
+      "sha256": "8bb8208f40004d6354fb6e08a84ed56dddde56c2962bc61de6bc5b2510f86306",
+      "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E8%A7%86%E5%9B%BE%E6%96%AD%E7%82%B9.ahk"
     },
     {
       "path": "app/快捷键工具/标题匹配_无CAD自测.ahk",
       "size": 1065,
-      "sha256": "83a09d10870b390da9b834d01b2f09e106702ff59512232a6284942192e61daf"
+      "sha256": "83a09d10870b390da9b834d01b2f09e106702ff59512232a6284942192e61daf",
+      "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/%E6%A0%87%E9%A2%98%E5%8C%B9%E9%85%8D_%E6%97%A0CAD%E8%87%AA%E6%B5%8B.ahk"
     },
     {
       "path": "app/快捷键工具/视图断点_无CAD自测.ahk",
       "size": 2447,
-      "sha256": "1d9d85c381e5294734be4c1b06734ea1ae377239bd81427d1d66a972d32ec8ef"
+      "sha256": "1d9d85c381e5294734be4c1b06734ea1ae377239bd81427d1d66a972d32ec8ef",
+      "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/%E8%A7%86%E5%9B%BE%E6%96%AD%E7%82%B9_%E6%97%A0CAD%E8%87%AA%E6%B5%8B.ahk"
     },
     {
       "path": "app/快捷键工具/说明_快捷操作.md",
       "size": 2449,
-      "sha256": "6883993a4bd7115a4897eb3ac183a98d789331b4db5f577a029343ae7bd7521a"
+      "sha256": "6883993a4bd7115a4897eb3ac183a98d789331b4db5f577a029343ae7bd7521a",
+      "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/%E8%AF%B4%E6%98%8E_%E5%BF%AB%E6%8D%B7%E6%93%8D%E4%BD%9C.md"
     },
     {
       "path": "runtime/launcher.py",
@@ -110,8 +118,8 @@
     },
     {
       "path": "runtime/updater.py",
-      "size": 13670,
-      "sha256": "beedf1f4bbdafb7c522649a02d75560b1dba864ed762527196eaae4d2eb8401b"
+      "size": 25718,
+      "sha256": "8ccb12a2cbcaec2686cdb8b0e8156e8b775e335e823e1987ebc6fbad2bfc4bf3"
     }
   ],
   "remove": []
