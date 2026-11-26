@@ -1,6 +1,6 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.42.8",
+  "version": "0.42.9",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
@@ -10,8 +10,8 @@
     },
     {
       "path": "app/app.py",
-      "size": 47047,
-      "sha256": "e3d5980d3ebb91ab2f34378b7ace67d234cf2f4eb2c748ab07ebd7c803d2bbdb"
+      "size": 49456,
+      "sha256": "6be7a8f067257d948e1b14648a152a023851efebe740835c284b74c21afad0c3"
     },
     {
       "path": "app/autoread.py",
@@ -29,9 +29,14 @@
       "sha256": "6b88b811b06280c2190529044cb2ff7b9cd6dd4f8e9f19d8518cf87319cf9f50"
     },
     {
+      "path": "app/drawing_selector.py",
+      "size": 9679,
+      "sha256": "039658d2a0e4ff1f97d6f398dbc357013b67188876dd9dd00302b89c1b8baca5"
+    },
+    {
       "path": "app/floating_panel.py",
-      "size": 58064,
-      "sha256": "6d946543ee3c1314b61e863cc68bc08827325d8e9d785da53627082f954f3103"
+      "size": 58564,
+      "sha256": "94b4a1861508a313fd652ab404f91ee67cfdb5275c157b7772b12ab7cefe00a3"
     },
     {
       "path": "app/guided.py",
@@ -107,8 +112,8 @@
     },
     {
       "path": "app/快捷键工具/说明_快捷操作.md",
-      "size": 3944,
-      "sha256": "659e7f4da1cc039cc704cb22d0db70bf86cc49d277192ca4eacbadce9951a4b7",
+      "size": 4403,
+      "sha256": "6e8dc717e5e8b31ea4ad5811ac06605aa1df1467e90631a967af16f7639f7cf4",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/%E8%AF%B4%E6%98%8E_%E5%BF%AB%E6%8D%B7%E6%93%8D%E4%BD%9C.md"
     },
     {
