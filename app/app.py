@@ -441,7 +441,8 @@ class App:
         except Exception as e:messagebox.showerror('名单导入失败',str(e))
 
     def import_block_names(self):
-        filename=filedialog.askopenfilename(title='导入正式块名称 Excel 清单',
+        parent=self._floating.win if self._floating is not None else self.root
+        filename=filedialog.askopenfilename(title='导入正式块名称 Excel 清单',parent=parent,
             filetypes=[('Excel 工作簿','*.xlsx'),('CSV / TXT 清单','*.csv *.txt'),('所有文件','*.*')])
         if not filename:return
         try:
@@ -463,9 +464,9 @@ class App:
             if detail:
                 message+='\n\n未匹配项（最多显示12项）：\n'+detail
             message+='\n\n只有唯一匹配的块名称才会传给 CAXA 自动填写；不匹配项不会使用相似图号猜测。'
-            messagebox.showinfo('块名称清单导入完成',message)
+            messagebox.showinfo('块名称清单导入完成',message,parent=parent)
         except Exception as e:
-            messagebox.showerror('块名称清单导入失败',str(e))
+            messagebox.showerror('块名称清单导入失败',str(e),parent=parent)
 
     def require(self):
         if not self.path:
@@ -513,7 +514,7 @@ class App:
     def from_clipboard(self):
         if not self.require(): return
         try:
-            text=self.root.clipboard_get()
+            text=self._get_plain_clipboard_text()
             params=core.parse_clipboard(text)
             if not params:
                 raise ValueError('未找到已知字段。可能是复制了 CAD 对象而不是属性表格文字；也可能字段名称不同。')
