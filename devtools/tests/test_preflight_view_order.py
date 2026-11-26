@@ -84,6 +84,35 @@ class PublishedViewOrderTests(unittest.TestCase):
                 finally:
                     db.close()
 
+    def test_basic_work_copy_task_is_valid_without_a_view_plan_or_name(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            drawings = root / "source"
+            drawings.mkdir()
+            source = drawings / "BASIC-01_普通测试图.exb"
+            source.write_bytes(b"synthetic test bytes; not a real EXB file")
+            db = core.connect(root / "progress.sqlite3")
+            try:
+                self.assertEqual(core.scan_folder(db, drawings, exclude_dirs=()), 1)
+                core.ensure_working_copy(db, str(source))
+                drawing = core.get_drawing(db, str(source))
+                block = core.block_name_for_path(db, str(source))
+                storage = root / "user_data"
+                bridge.publish_active_job(
+                    storage, drawing, drawing["suggested_name"], (),
+                    block["block_name"], block["status"]
+                )
+                signature = bridge.expected_job_signature(
+                    drawing, drawing["suggested_name"], (),
+                    block["block_name"], block["status"]
+                )
+                self.assertTrue(
+                    preflight.active_job_valid(db, storage, signature),
+                    "basic layer and cleanup actions must not require a six-view plan",
+                )
+            finally:
+                db.close()
+
     def test_interleaved_view_order_is_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             db, storage, signature, plan = self._publish_task(
