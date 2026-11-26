@@ -33,19 +33,15 @@
 
 ## 自动更新
 
-安装包已预配置公开 GitHub Raw 更新清单：
+正式运行包可通过 HTTPS 读取公开 GitHub Raw 更新清单，只下载 SHA-256 发生变化的 `app/`、`runtime/` 程序文件；所有文件先校验，再替换，失败时回滚。
 
-`https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/updates/manifest.json`
-
-每次启动时，程序通过 HTTPS 检查版本和文件 SHA-256，只下载 `app/`、`runtime/` 中发生变化的程序文件。没有变化时不会下载程序文件。下载文件全部通过校验后才替换本机文件；更新失败时记录日志并继续启动原版本。
-
-如果当前网络无法访问 GitHub Raw，自动更新可能暂时无法完成，但不会因此删除本机数据或阻止旧版本启动。检查状态、版本号、下载/替换文件数及失败原因会记录在安装目录的 `logs/launcher.log`。
+**本次 v0.42.16 独立测试包已关闭自动更新**：其 `updates/update_source.json` 中 `auto_check=false` 且 `manifest_url` 为空，不会从 main 稳定分支下载或替换任何程序文件。后续测试版本通过新的独立 ZIP 交付。
 
 ## 本机数据
 
 图纸扫描记录、SQLite 进度数据库、导入的正式块名称清单、用户模板、模板选择、CAD 控制器运行时和备份保存在：
 
-`%LOCALAPPDATA%\\CAXA_Library_Helper`（如启动配置设置了 `CAXA_HELPER_DATA_DIR`，则以该目录为准）
+`%LOCALAPPDATA%\\CAXA_Library_Helper`（正式运行包；独立测试包使用单独的 TEST 数据目录）
 
 这些文件不属于公共源码仓库，也不应提交到 Git。增量更新只允许修改 `app/` 和 `runtime/`，不更新用户数据目录、根启动入口或更新源配置。
 
