@@ -34,4 +34,4 @@
 - 测试包设置 `auto_check=false`、`manifest_url=""`，不从 main 稳定分支自动更新。
 - GitHub Actions 仅在 Python 单元测试和 AHK 语法检查通过后上传 ZIP artifact。
 - 本轮 CI：81 项单元测试通过；AutoHotkey v2.0.32 parse-only 通过；ZIP 构建、结构校验和 SHA-256 复核通过。
-- 测试包 SHA-256：`f0d2442a964d0b300603bd729bf0f97198b80d32bf91a642f487c1e54a235e52`。
+- CI artifact 同时提供 ZIP 与 SHA-256 sidecar；以下载时配套的校验文件为准。
