@@ -17,11 +17,11 @@ class Panel:
         self.win.title('CAXA 制作控制台')
         sw=max(1024,self.win.winfo_screenwidth())
         sh=max(720,self.win.winfo_screenheight())
-        self._expanded_geometry=f'340x310+{max(10,sw-360)}+{max(35,min(90,sh-360))}'
+        self._expanded_geometry=f'400x560+{max(10,sw-420)}+{max(20,min(90,sh-580))}'
         self._collapsed_geometry=f'300x70+{max(10,sw-320)}+{max(35,min(90,sh-120))}'
         self.win.geometry(self._expanded_geometry)
-        self.win.minsize(320,270)
-        self.win.maxsize(390,390)
+        self.win.minsize(360,520)
+        self.win.maxsize(440,650)
         self.win.resizable(False,False)
         self.win.attributes('-topmost',True)
         self.win.protocol('WM_DELETE_WINDOW',self.hide_panel)
@@ -73,7 +73,7 @@ class Panel:
         self.page_host=ttk.Frame(self.normal_frame)
         self.page_host.pack(fill='both',expand=True,pady=(5,2))
         ttk.Separator(self.normal_frame).pack(fill='x',pady=(3,5))
-        ttk.Label(self.normal_frame,textvariable=self.status,wraplength=330,
+        ttk.Label(self.normal_frame,textvariable=self.status,wraplength=390,
                   foreground='#555').pack(anchor='w')
         self.collapsed_frame=ttk.Frame(self.win,padding=6)
         collapsed_row=ttk.Frame(self.collapsed_frame);collapsed_row.pack(fill='x')
@@ -96,40 +96,52 @@ class Panel:
         self._page_key='home'
         self.win.title('CAXA 制作助手')
         self.win.geometry(self._expanded_geometry)
-        self.win.minsize(320,270);self.win.maxsize(390,390)
+        self.win.minsize(360,520);self.win.maxsize(440,650)
         body=ttk.Frame(self.page_host,padding=3);body.pack(fill='both',expand=True)
-        ttk.Label(body,textvariable=self.context,wraplength=330,
-                  font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(5,2))
-        ttk.Label(body,textvariable=self.block_name_status,wraplength=330,
-                  foreground='#24527a').pack(anchor='w',pady=(0,5))
-        ttk.Label(body,textvariable=self.app.view_template_summary_var,wraplength=330,
-                  foreground='#666').pack(anchor='w',pady=(0,7))
+        ttk.Label(body,textvariable=self.context,wraplength=390,
+                  font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(3,2))
+        ttk.Label(body,textvariable=self.block_name_status,wraplength=390,
+                  foreground='#24527a').pack(anchor='w',pady=(0,4))
+        ttk.Label(body,textvariable=self.app.view_template_summary_var,wraplength=390,
+                  foreground='#666').pack(anchor='w',pady=(0,5))
         self.main_button=ttk.Button(body,textvariable=self.recommended,command=self.do_recommended)
-        self.main_button.pack(fill='x',pady=(2,3),ipady=8)
-        ttk.Label(body,textvariable=self.action_reason,wraplength=330,
-                  foreground='#666').pack(anchor='w',pady=(0,9))
-        row=ttk.Frame(body);row.pack(fill='x')
+        self.main_button.pack(fill='x',pady=(2,3),ipady=7)
+        ttk.Label(body,textvariable=self.action_reason,wraplength=390,
+                  foreground='#666').pack(anchor='w',pady=(0,6))
+
+        quick=ttk.LabelFrame(body,text='常用操作（直接点击）',padding=6)
+        quick.pack(fill='x',pady=(1,6))
+        for col in range(2):quick.columnconfigure(col,weight=1)
+        quick_actions=[
+            ('清理重复线',self.delete_duplicate_lines),
+            ('颜色归层',self.open_cleanup_window),
+            ('打开图层设置',lambda:self._queue_ahk_action('open_layer_manager')),
+            ('全部图层打开',lambda:self._queue_ahk_action('open_all_layers')),
+            ('定义图符',self.define_symbol),
+            ('属性与入库',self.open_insert_window),
+        ]
+        for index,(label,command) in enumerate(quick_actions):
+            ttk.Button(quick,text=label,command=command).grid(
+                row=index//2,column=index%2,sticky='ew',padx=3,pady=3,ipady=5)
+
+        row=ttk.Frame(body);row.pack(fill='x',pady=(1,0))
         for col in range(3):row.columnconfigure(col,weight=1)
-        ttk.Button(row,text='更多操作',command=self.open_actions_page).grid(row=0,column=0,sticky='ew',padx=(0,3))
+        ttk.Button(row,text='其他工具',command=self.open_actions_page).grid(row=0,column=0,sticky='ew',padx=(0,3))
         ttk.Button(row,text='选择图纸',command=self.open_workbench).grid(row=0,column=1,sticky='ew',padx=3)
         ttk.Button(row,text='设置',command=self.open_settings_window).grid(row=0,column=2,sticky='ew',padx=(3,0))
 
     def open_actions_page(self):
-        w=self._dialog('actions','操作入口','350x445')
+        w=self._dialog('actions','其他工具','350x300')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
-        ttk.Label(w,text='只在需要时进入对应操作；所有页面都在这个悬浮窗口内切换。',
+        ttk.Label(w,text='日常功能已放在悬浮面板首页；这里保留连接和诊断工具。',
                   wraplength=320,foreground='#666').pack(anchor='w',pady=(0,8))
-        ttk.Button(w,text='清理图纸',command=self.open_cleanup_window).pack(fill='x',pady=3,ipady=4)
-        ttk.Button(w,text='图层开关（F4 全开 / F8 设置）',command=self.open_layer_control_window).pack(fill='x',pady=3,ipady=4)
-        ttk.Button(w,text='开始定义图符',command=self.define_symbol).pack(fill='x',pady=3,ipady=4)
-        ttk.Button(w,text='属性与入库',command=self.open_insert_window).pack(fill='x',pady=3,ipady=4)
-        ttk.Separator(w).pack(fill='x',pady=7)
-        ttk.Button(w,text='连接当前 CAXA',command=self.connect_cad).pack(fill='x',pady=3)
+        ttk.Button(w,text='连接当前 CAXA',command=self.connect_cad).pack(fill='x',pady=4,ipady=4)
         ttk.Separator(w).pack(fill='x',pady=6)
-        ttk.Button(w,text='只读诊断 CAXA 控件',command=self.probe_cad_controls).pack(fill='x',pady=3,ipady=4)
+        ttk.Button(w,text='只读诊断 CAXA 控件',command=self.probe_cad_controls).pack(fill='x',pady=4,ipady=4)
         ttk.Label(w,text='仅记录窗口/控件类别和位置；不读取图纸文字，不点击、不修改、不保存。',
                   wraplength=315,foreground='#666').pack(anchor='w',pady=(2,0))
+
     def open_layer_control_window(self):
         w=self._dialog('layers','图层开关','330x205')
         if getattr(w,'_caxa_built',False):return
@@ -137,9 +149,9 @@ class Panel:
         ttk.Label(w,text='单独关闭某个图层',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,3))
         ttk.Label(w,text='打开 CAXA 图层设置，在目标图层的“打开”列点击状态图标。当前图层不能关闭。',
                   wraplength=300,foreground='#555').pack(anchor='w',pady=2)
-        ttk.Button(w,text='打开图层设置（F8）',command=lambda:self._queue_ahk_action('open_layer_manager')).pack(fill='x',pady=4,ipady=4)
+        ttk.Button(w,text='打开图层设置',command=lambda:self._queue_ahk_action('open_layer_manager')).pack(fill='x',pady=4,ipady=4)
         ttk.Separator(w).pack(fill='x',pady=4)
-        ttk.Button(w,text='全部图层打开（F4）',command=lambda:self._queue_ahk_action('open_all_layers')).pack(fill='x',pady=4,ipady=4)
+        ttk.Button(w,text='全部图层打开',command=lambda:self._queue_ahk_action('open_all_layers')).pack(fill='x',pady=4,ipady=4)
         ttk.Label(w,text='全部打开只恢复关闭状态，不修改冻结、锁定、当前图层或对象属性；不会自动保存。',
                   wraplength=300,foreground='#666').pack(anchor='w',pady=(3,0))
 
@@ -156,7 +168,7 @@ class Panel:
         self._collapsed=False
         self.collapsed_frame.pack_forget()
         self.normal_frame.pack(fill='both',expand=True)
-        self.win.minsize(320,270);self.win.maxsize(390,390)
+        self.win.minsize(360,520);self.win.maxsize(440,650)
         self.win.geometry(self._expanded_geometry)
         self.win.attributes('-topmost',True)
 
@@ -352,10 +364,8 @@ class Panel:
         w=self._dialog('settings','设置','350x390')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
-        ttk.Label(w,text='单键快捷键',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,3))
-        ttk.Label(w,text='F3 名称填入｜F4 全部图层打开｜F5 定义图符｜F6 下一视图｜F7 上一视图\n'
-                      'F8 图层设置｜F9 复制名称｜F10 属性编辑｜F11 标题栏属性｜F12 状态\n'
-                      'Pause 暂停/恢复（全局）。F3–F12 均为单键；助手接管时优先于 CAXA 原快捷键，暂停后交还。',
+        ttk.Label(w,text='操作方式',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,3))
+        ttk.Label(w,text='常用功能已直接放在悬浮面板首页，点击按钮即可执行。本版本不拦截 CAXA 原生快捷键；需要设置颜色规则或视图模板时，再进入对应设置页。',
                   wraplength=315,foreground='#555').pack(anchor='w',pady=(0,7))
         ttk.Separator(w).pack(fill='x',pady=5)
         ttk.Label(w,text='制作模板',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,4))
@@ -750,7 +760,7 @@ class Panel:
             '3. 在 CAXA 图层管理中手动关闭尺寸线层；不要删除尺寸对象。\n'
             '4. 按视图计划完成全部无尺寸视图。\n'
             '5. 恢复尺寸线层显示，并检查图面没有误关其它图层。\n\n'
-            '单独关闭图层：按 F8 打开 CAXA 图层设置，在目标层“打开”列点击状态图标；全部恢复：按 F4 执行 layon。'
+            '单独关闭图层：点击悬浮面板“打开图层设置”，在目标层“打开”列点击状态图标；全部恢复：点击“全部图层打开”。'
             '只处理打开/关闭，不改变冻结、锁定、当前图层或对象属性。CAXA 2024 实机行为仍需用测试图确认。')
 
 
