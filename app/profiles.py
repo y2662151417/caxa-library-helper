@@ -63,12 +63,11 @@ def validate(profile):
         _req(isinstance(rule, dict) and isinstance(rule.get('source_color'), str) and rule['source_color'].strip(), '颜色规则缺少原颜色')
         _req(rule['source_color'].lower() not in colors, '原颜色规则重复')
         colors.add(rule['source_color'].lower())
-        for key in ('target_layer','target_linetype','linetype_scale'):
-            _req(key in rule, '颜色规则缺少 '+key)
+        _req('target_layer' in rule, '颜色规则缺少 target_layer')
         for key in ('target_layer','target_linetype','target_color'):
             value = rule.get(key)
             _req(value is None or (isinstance(value, str) and not BAD.search(value)), key+'必须为有效文本或留空')
-        scale = rule['linetype_scale']
+        scale = rule.get('linetype_scale')
         _req(scale is None or (isinstance(scale, (int,float)) and not isinstance(scale,bool) and math.isfinite(scale) and scale > 0), '线型比例必须为有限正数或待确认')
     return profile
 
@@ -128,4 +127,4 @@ def read_profiles(filepath):
 def auto_executable_colors(profile):
     """Fully specified colors only. Blank rules are never executed by the UI macro."""
     validate(profile)
-    return [r for r in profile.get('color_rules',[]) if r['target_layer'] and r['target_linetype'] and r['linetype_scale']]
+    return [r for r in profile.get('color_rules',[]) if r.get('target_layer')]
