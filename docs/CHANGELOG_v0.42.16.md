@@ -26,3 +26,12 @@
 - AutoHotkey v2.0.32 parse-only 检查通过，覆盖主控制器与独立只读探针。
 - 更新清单版本、文件大小和 SHA-256 一致性测试通过。
 - PR #9 保持 Draft；实机验收前不合并、不发布安装包。
+
+## 独立测试包
+
+- 新增 `devtools/release/build_test_package.py`，按允许列表生成独立测试 ZIP；运行包根目录只有 `启动CAXA助手.bat` 一个入口，不包含 `devtools/`、`.github/`、Git 元数据、EXB/DWG/DXF、数据库或 Python 缓存。
+- 测试包将用户数据固定写入 `%LOCALAPPDATA%\\CAXA_Library_Helper_TEST_0_42_16`，不读取稳定版数据目录或迁移目录中的 UserData。
+- 测试包设置 `auto_check=false`、`manifest_url=""`，不从 main 稳定分支自动更新。
+- GitHub Actions 仅在 Python 单元测试和 AHK 语法检查通过后上传 ZIP artifact。
+- 本轮 CI：81 项单元测试通过；AutoHotkey v2.0.32 parse-only 通过；ZIP 构建、结构校验和 SHA-256 复核通过。
+- 测试包 SHA-256：`f0d2442a964d0b300603bd729bf0f97198b80d32bf91a642f487c1e54a235e52`。
