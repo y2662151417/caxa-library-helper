@@ -21,7 +21,7 @@
     {
       "path": "app/bridge.py",
       "size": 7798,
-      "sha256": "4a336c167e9d11a1b18283f5f73f251ae20f149637703efbb8d1f0fbe4570c4d"
+      "sha256": "8f13b46201f7a85f1c6d773f50c34f6ff20f20b160956528ee083d0f92e5d3ce"
     },
     {
       "path": "app/core.py",
@@ -31,7 +31,7 @@
     {
       "path": "app/floating_panel.py",
       "size": 58064,
-      "sha256": "4a3851bc5748b1b5c7ec8e9a0d61549808810a68c85c09bf69de43d762cffc1e"
+      "sha256": "6d946543ee3c1314b61e863cc68bc08827325d8e9d785da53627082f954f3103"
     },
     {
       "path": "app/guided.py",
@@ -72,13 +72,13 @@
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
       "size": 73095,
-      "sha256": "7c4b96851e21de0b7104d5b105d0c5b78026b43c953330d89c5501aea1965fe8",
+      "sha256": "706499c9245232264ca5787c42b5b5988593ff49b5d1609496b6f9adab2cedcd",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E5%8D%8A%E8%87%AA%E5%8A%A8%E8%BE%85%E5%8A%A9.ahk"
     },
     {
       "path": "app/快捷键工具/CAXA_控件探针_只读.ahk",
       "size": 4023,
-      "sha256": "59af25cea0f3ede284e731d988afd4811ff7b5b554fe8144aad06cb24280afb5",
+      "sha256": "e41faa567a1aa2c54a735d17606bf421708a001cb4275417bf0cb7f92f3873f5",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E6%8E%A7%E4%BB%B6%E6%8E%A2%E9%92%88_%E5%8F%AA%E8%AF%BB.ahk"
     },
     {
@@ -108,7 +108,7 @@
     {
       "path": "app/快捷键工具/说明_快捷操作.md",
       "size": 3586,
-      "sha256": "3579eb92ed8f6f0b15cbfb6e7d94855bd7fea0ec9cf5d2657a1ecf7ee4b486f6",
+      "sha256": "6df93563579142919891c031406f0654e8f87f5a2a7a2c6cd39e2865740b5633",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/%E8%AF%B4%E6%98%8E_%E5%BF%AB%E6%8D%B7%E6%93%8D%E4%BD%9C.md"
     },
     {
