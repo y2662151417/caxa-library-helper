@@ -918,6 +918,12 @@ class Panel:
                 raise workflow_v08.WorkflowError('颜色模板在过滤后发生变化，请重新打开过滤设置。')
         except Exception as e:
             messagebox.showwarning('颜色筛选状态不一致',str(e),parent=self.win);return
+        if not messagebox.askyesno('确认自动选择对象',
+            f"当前源颜色：{rule['source_color']}\n\n"
+            '请确认：已关闭 CAXA 拾取过滤设置对话框，当前处于空命令状态，过滤条件已设置正确。\n'
+            '助手将发送 Ctrl+A，选择当前图纸中所有符合拾取过滤条件的对象。此操作只选择，不修改图纸。',
+            parent=self.win,default='no'):
+            return
         if self._queue_ahk_action('select_filtered_objects'):
             self.status.set(f"已按当前拾取过滤执行 Ctrl+A（源颜色：{rule['source_color']}）。请检查高亮范围；若包含标题栏、图框、尺寸等对象，按 Esc 取消。")
 
