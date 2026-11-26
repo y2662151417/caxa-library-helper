@@ -34,6 +34,13 @@ class IncrementalUpdaterTests(unittest.TestCase):
         (root/'app'/'module.py').write_text('old = True\n',encoding='utf-8')
         (root/'app'/'obsolete.py').write_text('obsolete\n',encoding='utf-8')
         (root/'data'/'progress.sqlite3').write_bytes(b'user progress')
+    def test_unicode_download_url_is_percent_encoded(self):
+        raw_url = 'https://updates.example.test/caxa/stable/app/图库模板_示例.json'
+        encoded_url = 'https://updates.example.test/caxa/stable/app/%E5%9B%BE%E5%BA%93%E6%A8%A1%E6%9D%BF_%E7%A4%BA%E4%BE%8B.json'
+        opener = FakeOpener({encoded_url: b'payload'})
+        self.assertEqual(updater._read_url(raw_url, 3, opener=opener), b'payload')
+        self.assertEqual(opener.calls, [encoded_url])
+
     def test_empty_update_source_is_safe_noop(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td); self.make_install(root)
