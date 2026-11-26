@@ -441,13 +441,16 @@ class App:
         except Exception as e:messagebox.showerror('名单导入失败',str(e))
 
     def import_block_names(self):
-        filename=filedialog.askopenfilename(title='导入正式图符名称清单（TXT或CSV）',
-            filetypes=[('块名称清单 TXT / CSV','*.txt *.csv'),('所有文件','*.*')])
+        filename=filedialog.askopenfilename(title='导入正式块名称 Excel 清单',
+            filetypes=[('Excel 工作簿','*.xlsx'),('CSV / TXT 清单','*.csv *.txt'),('所有文件','*.*')])
         if not filename:return
         try:
-            try:text=Path(filename).read_text(encoding='utf-8-sig')
-            except UnicodeDecodeError:text=Path(filename).read_text(encoding='gb18030')
-            n=core.import_block_names(self.c,text)
+            if Path(filename).suffix.lower()=='.xlsx':
+                n=core.import_block_names_xlsx(self.c,filename)
+            else:
+                try:text=Path(filename).read_text(encoding='utf-8-sig')
+                except UnicodeDecodeError:text=Path(filename).read_text(encoding='gb18030')
+                n=core.import_block_names(self.c,text)
             rows=core.block_name_summary(self.c)
             found=sum(x['match_status']=='已匹配' for x in rows)
             missing=[x for x in rows if x['match_status']!='已匹配']
@@ -470,6 +473,15 @@ class App:
             return False
         return True
 
+    def _get_plain_clipboard_text(self):
+        try:
+            value=self.root.clipboard_get()
+        except tk.TclError as exc:
+            raise ValueError('剪贴板中没有可读取的普通文本。请在 CAXA 参数表中复制文字，而不是复制图形对象。') from exc
+        if not value or not value.strip():
+            raise ValueError('剪贴板内容为空，请先复制 CAXA 参数表中的文字。')
+        return value
+
     def quick_name(self):
         """Single deliberate step for copying and checking a formatted property grid.
         Neither CAD nor its clipboard is modified; database write needs confirmation.
@@ -479,7 +491,7 @@ class App:
             messagebox.showwarning('命名类型','此操作只用于已核对的垂直重锤拉紧装置主体图。下级图请先确认不同规则。')
             return
         try:
-            text=self.root.clipboard_get()
+            text=self._get_plain_clipboard_text()
             parsed=core.parse_clipboard(text)
             values=[parsed.get(k,'') for k in core.FIELDS]
             row=core.get_drawing(self.c,self.path)
