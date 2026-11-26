@@ -81,9 +81,9 @@ def expected_job_signature(drawing, suggested_name: str, slots=(),
 def publish_active_job(storage: Path, drawing, suggested_name: str, slots=(),
                        block_name: str = '', block_name_status: str = '未导入块名称清单') -> Path:
     """Atomic UTF-16 INI for AutoHotkey v2 (Windows INI APIs read UTF-16 BOM)."""
-    if not drawing or not (suggested_name.strip() or
-                           (block_name_status == '已匹配' and block_name.strip())):
-        raise ValueError('必须确认建议名称或通过完整图号匹配到正式块名称，才能设置快捷键任务。')
+    has_exact_name = block_name_status == '已匹配' and bool(block_name.strip())
+    if not drawing or (slots and not (suggested_name.strip() or has_exact_name)):
+        raise ValueError('定义图符前必须确认建议名称或通过完整图号匹配正式块名称。')
     if block_name_status == '已匹配' and not block_name.strip():
         raise ValueError('块名称状态为已匹配但名称为空，拒绝发布任务。')
     if block_name_status != '已匹配' and block_name.strip():
