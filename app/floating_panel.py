@@ -17,11 +17,11 @@ class Panel:
         self.win.title('CAXA 制作控制台')
         sw=max(1024,self.win.winfo_screenwidth())
         sh=max(720,self.win.winfo_screenheight())
-        self._expanded_geometry=f'400x560+{max(10,sw-420)}+{max(20,min(90,sh-580))}'
+        self._expanded_geometry=f'330x350+{max(10,sw-350)}+{max(20,min(90,sh-380))}'
         self._collapsed_geometry=f'300x70+{max(10,sw-320)}+{max(35,min(90,sh-120))}'
         self.win.geometry(self._expanded_geometry)
-        self.win.minsize(360,520)
-        self.win.maxsize(440,650)
+        self.win.minsize(310,330)
+        self.win.maxsize(380,430)
         self.win.resizable(False,False)
         self.win.attributes('-topmost',True)
         self.win.protocol('WM_DELETE_WINDOW',self.hide_panel)
@@ -42,7 +42,8 @@ class Panel:
         self._color_flow_profile_hash=''
         self.last_path=None
         self.context=tk.StringVar(value='当前未选择图纸')
-        self.block_name_status=tk.StringVar(value='正式块名称：尚未匹配')
+        self.block_name_status=tk.StringVar(value='块名称：尚未匹配')
+        self.cad_drawing_status=tk.StringVar(value='CAXA：未核对')
         self.status=tk.StringVar(value='正在检查 CAD 控制器…')
         self.recommended=tk.StringVar(value='先选择图纸')
         self.action_reason=tk.StringVar(value='点击“选择图纸”，选中一行后点击“打开图纸”。系统会自动创建工作副本。')
@@ -96,21 +97,23 @@ class Panel:
         self._page_key='home'
         self.win.title('CAXA 制作助手')
         self.win.geometry(self._expanded_geometry)
-        self.win.minsize(360,520);self.win.maxsize(440,650)
-        body=ttk.Frame(self.page_host,padding=3);body.pack(fill='both',expand=True)
-        ttk.Label(body,textvariable=self.context,wraplength=390,
-                  font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(3,2))
-        ttk.Label(body,textvariable=self.block_name_status,wraplength=390,
-                  foreground='#24527a').pack(anchor='w',pady=(0,4))
-        ttk.Label(body,textvariable=self.app.view_template_summary_var,wraplength=390,
-                  foreground='#666').pack(anchor='w',pady=(0,5))
-        self.main_button=ttk.Button(body,textvariable=self.recommended,command=self.do_recommended)
-        self.main_button.pack(fill='x',pady=(2,3),ipady=7)
-        ttk.Label(body,textvariable=self.action_reason,wraplength=390,
-                  foreground='#666').pack(anchor='w',pady=(0,6))
+        self.win.minsize(310,330);self.win.maxsize(380,430)
+        body=ttk.Frame(self.page_host,padding=2);body.pack(fill='both',expand=True)
+        ttk.Label(body,textvariable=self.context,wraplength=300,
+                  font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(1,3))
 
-        quick=ttk.LabelFrame(body,text='常用操作（直接点击）',padding=6)
-        quick.pack(fill='x',pady=(1,6))
+        name_row=ttk.Frame(body);name_row.pack(fill='x',pady=(0,3))
+        ttk.Label(name_row,textvariable=self.block_name_status,wraplength=185,
+                  foreground='#24527a').pack(side='left',fill='x',expand=True)
+        ttk.Button(name_row,text='复制块名称',command=self.copy_block_name).pack(side='right')
+
+        check_row=ttk.Frame(body);check_row.pack(fill='x',pady=(0,5))
+        ttk.Label(check_row,textvariable=self.cad_drawing_status,wraplength=190,
+                  foreground='#555').pack(side='left',fill='x',expand=True)
+        ttk.Button(check_row,text='核对图纸',command=self.check_active_drawing).pack(side='right')
+
+        quick=ttk.LabelFrame(body,text='常用操作',padding=4)
+        quick.pack(fill='x',pady=(0,5))
         for col in range(2):quick.columnconfigure(col,weight=1)
         quick_actions=[
             ('清理重复线',self.delete_duplicate_lines),
@@ -118,17 +121,15 @@ class Panel:
             ('打开图层设置',lambda:self._queue_ahk_action('open_layer_manager')),
             ('全部图层打开',lambda:self._queue_ahk_action('open_all_layers')),
             ('定义图符',self.define_symbol),
-            ('属性与入库',self.open_insert_window),
         ]
         for index,(label,command) in enumerate(quick_actions):
             ttk.Button(quick,text=label,command=command).grid(
-                row=index//2,column=index%2,sticky='ew',padx=3,pady=3,ipady=5)
+                row=index//2,column=index%2,sticky='ew',padx=2,pady=2,ipady=3)
 
-        row=ttk.Frame(body);row.pack(fill='x',pady=(1,0))
-        for col in range(3):row.columnconfigure(col,weight=1)
-        ttk.Button(row,text='其他工具',command=self.open_actions_page).grid(row=0,column=0,sticky='ew',padx=(0,3))
-        ttk.Button(row,text='选择图纸',command=self.open_workbench).grid(row=0,column=1,sticky='ew',padx=3)
-        ttk.Button(row,text='设置',command=self.open_settings_window).grid(row=0,column=2,sticky='ew',padx=(3,0))
+        row=ttk.Frame(body);row.pack(fill='x')
+        row.columnconfigure(0,weight=1);row.columnconfigure(1,weight=1)
+        ttk.Button(row,text='选择图纸',command=self.open_workbench).grid(row=0,column=0,sticky='ew',padx=(0,3))
+        ttk.Button(row,text='设置',command=self.open_settings_window).grid(row=0,column=1,sticky='ew',padx=(3,0))
 
     def open_actions_page(self):
         w=self._dialog('actions','其他工具','350x300')
@@ -168,7 +169,7 @@ class Panel:
         self._collapsed=False
         self.collapsed_frame.pack_forget()
         self.normal_frame.pack(fill='both',expand=True)
-        self.win.minsize(360,520);self.win.maxsize(440,650)
+        self.win.minsize(310,330);self.win.maxsize(380,430)
         self.win.geometry(self._expanded_geometry)
         self.win.attributes('-topmost',True)
 
@@ -364,6 +365,7 @@ class Panel:
         w=self._dialog('settings','设置','350x390')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
+        ttk.Button(w,text='导入 Excel 块名称清单',command=self.app.import_block_names).pack(fill='x',pady=(0,6),ipady=4)
         ttk.Label(w,text='操作方式',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,3))
         ttk.Label(w,text='常用功能已直接放在悬浮面板首页，点击按钮即可执行。本版本不拦截 CAXA 原生快捷键；需要设置颜色规则或视图模板时，再进入对应设置页。',
                   wraplength=315,foreground='#555').pack(anchor='w',pady=(0,7))
@@ -507,18 +509,17 @@ class Panel:
                     self.update_color_rule_choices();self._save_profile_preference()
                     self.status.set('已切换图纸，模板恢复通用默认。请核实设备类别。')
             if row:
-                self.context.set('当前：'+row['code']+'｜'+row['name']+'\n状态：'+row['status'])
+                self.context.set('图纸：'+row['code']+'｜'+row['name'])
                 try:
                     info=core.block_name_for_path(self.app.c,self.app.path)
-                    if info.get('status')=='已匹配':
-                        self.block_name_status.set('正式块名称：已匹配｜'+info.get('block_name',''))
-                    else:
-                        self.block_name_status.set('正式块名称：'+info.get('status','待匹配'))
+                    self.block_name_status.set('块名称：已匹配' if info.get('status')=='已匹配'
+                                               else '块名称：'+info.get('status','待匹配'))
                 except Exception:
-                    self.block_name_status.set('正式块名称：暂不可读取')
+                    self.block_name_status.set('块名称：暂不可读取')
             else:
                 self.context.set('尚未选择图纸')
-                self.block_name_status.set('正式块名称：请先在图纸管理中导入清单并选择图纸')
+                self.block_name_status.set('块名称：尚未匹配')
+            self._refresh_cad_drawing_status()
             self.update_recommendation()
             self._refresh_guide_status()
             if self.view_tree is not None:self._refresh_view_table()
@@ -791,6 +792,34 @@ class Panel:
                 self.win.deiconify();self._topmost_suspended_until=0;self.win.attributes('-topmost',True)
                 self.status.set('首次校准流程结束；请检查状态提示并继续。')
         except tk.TclError:pass
+
+    def check_active_drawing(self):
+        if self._queue_ahk_action('check_active_drawing'):
+            self.cad_drawing_status.set('CAXA：正在核对…')
+
+    def _refresh_cad_drawing_status(self):
+        status_path=core.storage_dir()/'active_drawing_check.ini'
+        job_path=core.storage_dir()/'active_job.ini'
+        try:
+            if not status_path.is_file() or not job_path.is_file():
+                self.cad_drawing_status.set('CAXA：未核对')
+                return
+            job=bridge.read_active_job(job_path)
+            conf=configparser.ConfigParser(interpolation=None)
+            conf.read(status_path,encoding='utf-16')
+            if 'check' not in conf or conf['check'].get('signature','')!=job.get('job_signature',''):
+                self.cad_drawing_status.set('CAXA：未核对')
+                return
+            stamp=float(conf['check'].get('checked_at','0'))
+            if time.time()-stamp>45:
+                self.cad_drawing_status.set('CAXA：未核对')
+                return
+            result=conf['check'].get('result','')
+            labels={'matched':'CAXA：图纸匹配','mismatch':'CAXA：当前图纸不匹配',
+                    'unknown':'CAXA：无法确认当前图纸'}
+            self.cad_drawing_status.set(labels.get(result,'CAXA：未核对'))
+        except Exception:
+            self.cad_drawing_status.set('CAXA：未核对')
 
     def copy_block_name(self):
         if not self.require():return
