@@ -36,33 +36,33 @@
     {
       "path": "app/floating_panel.py",
       "size": 59807,
-      "sha256": "2b493df33dd0594940426a1a00000000510e527f9b05688c1f83d9ab5be0cd19"
+      "sha256": "a7419140cec1a8ea11f3a0d59c94536add77568c82cf4a9cedd2ee9fb75007b5"
     },
     {
       "path": "app/guided.py",
       "size": 2489,
-      "sha256": "fda115ababb7035ba204d37400000000510e527f9b05688c1f83d9ab5be0cd19"
+      "sha256": "397765a60b9a57eaf392c1821801156c3a5925c342818d5961cd7c5491c43f6c"
     },
     {
       "path": "app/preflight.py",
       "size": 8308,
-      "sha256": "702d3e3bf0d7bac5eb17d56800000000510e527f9b05688c1f83d9ab5be0cd19"
+      "sha256": "e79c5abd2b5b13b73eaabeddff598d6a98e9ced5e7b26534c2a8d1f39d7d450a"
     },
     {
       "path": "app/profiles.py",
       "size": 5817,
-      "sha256": "8728195e5f7a3367eee107c800000000510e527f9b05688c1f83d9ab5be0cd19"
+      "sha256": "e3d7d43418c815ae034b1c0ec2b4cc360f76c7da543355983f67b191eff570c2"
     },
     {
       "path": "app/resources/图库模板_示例.json",
       "size": 1452,
-      "sha256": "24b58eb5ceead1da261f893400000000510e527f9b05688c1f83d9ab5be0cd19",
+      "sha256": "103caf34cea29f6637551f96593024cf0c68576f7536c4084f00366f02523f53",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/resources/%E5%9B%BE%E5%BA%93%E6%A8%A1%E6%9D%BF_%E7%A4%BA%E4%BE%8B.json"
     },
     {
       "path": "app/router_v11.py",
       "size": 2515,
-      "sha256": "b58f1757f73f5d01a259513800000000510e527f9b05688c1f83d9ab5be0cd19"
+      "sha256": "6512b84bbce813e0a2d02385516fca033bc839738411a36ec78c4413e6d6c6b5"
     },
     {
       "path": "app/verify_action.py",
