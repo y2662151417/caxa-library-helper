@@ -642,7 +642,7 @@ startSymbolDefinition(expectedSignature) {
 }
 
 ; Read-only inspection of the exact published CAXA window/control tree.
-; This function never activates windows, sends CAD keys, clicks controls, or reads UI text.
+; This function never activates windows, sends CAD keys, clicks controls, or reads control text.
 probeCaxaControls(expectedSignature) {
     global jobFile, cadExe, dataDir, isPaused
     if isPaused {
