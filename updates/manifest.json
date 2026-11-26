@@ -1,6 +1,6 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.42.9",
+  "version": "0.42.10",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
@@ -118,13 +118,13 @@
     },
     {
       "path": "runtime/launcher.py",
-      "size": 2815,
-      "sha256": "31cf61bcfbd752c5e7792074143327d7a013390354b9783cee69ee8a282cbea9"
+      "size": 3082,
+      "sha256": "be5ea741604b6203669d896c7efc6f4bf1f2433dcaaf9091410639f894966b94"
     },
     {
       "path": "runtime/updater.py",
-      "size": 13670,
-      "sha256": "beedf1f4bbdafb7c522649a02d75560b1dba864ed762527196eaae4d2eb8401b"
+      "size": 14773,
+      "sha256": "c99adfd58174d2ef6308cba72e71d5e8c6d49048f8276314329d58ff67b4db00"
     }
   ],
   "remove": []
