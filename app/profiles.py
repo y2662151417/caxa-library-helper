@@ -125,6 +125,6 @@ def read_profiles(filepath):
 
 
 def auto_executable_colors(profile):
-    """Fully specified colors only. Blank rules are never executed by the UI macro."""
+    """Return only rules with an explicit target layer; other colors stay untouched."""
     validate(profile)
     return [r for r in profile.get('color_rules',[]) if r.get('target_layer')]
