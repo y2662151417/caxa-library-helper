@@ -638,8 +638,8 @@ class Panel:
         if not job:return
         raw_plan=job.get('view_plan','')
         plan=raw_plan.split('|') if raw_plan else []
-        if not 1<=len(plan)<=6 or any(not item.strip() for item in plan):
-            messagebox.showwarning('视图计划无效','当前图纸尚未建立有效的 1–6 项视图计划。请先建立本张图纸的视图计划。',parent=self.win)
+        if len(plan) not in (4,6) or any(not item.strip() for item in plan):
+            messagebox.showwarning('视图计划无效','当前图纸必须是双视图4项（主视图、左视图）或三视图6项（主视图、俯视图、左视图），每种视图各有带尺寸和无尺寸版本。请先核对本张视图计划。',parent=self.win)
             return
         self._show_home_page()
         self._queue_guide_action('define_symbol')
@@ -767,6 +767,7 @@ class Panel:
         elif action=='prepare_views':self.prepare_views()
         elif action=='next':self.app.next_pending()
         elif action=='review':self.open_insert_window()
+        elif action=='define_symbol':self.define_symbol()
         elif action=='cad_guide':self.open_actions_page()
         elif action=='configure_views':self.open_views_window()
         elif action=='blocked':
