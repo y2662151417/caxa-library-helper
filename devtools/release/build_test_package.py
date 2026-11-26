@@ -133,8 +133,8 @@ def _write_test_readme(path: Path, version: str) -> None:
 ## 与原有程序隔离
 
 - 请解压到新目录，不要覆盖现有 CAXA 图库助手。
-- 本测试包将用户数据固定写入：%LOCALAPPDATA%\\\\{folder}
-- 不读取或修改原有的 %LOCALAPPDATA%\\\\CAXA_Library_Helper，也不使用迁移目录中的 UserData。
+- 本测试包将用户数据固定写入：%LOCALAPPDATA%\\{folder}
+- 不读取或修改原有的 %LOCALAPPDATA%\\CAXA_Library_Helper，也不使用迁移目录中的 UserData。
 - 自动更新关闭；此测试包不会从 main 稳定分支下载或替换程序文件。
 - 图纸、工作副本、数据库、Excel 清单、个人配置和日志不随 ZIP 分发。
 
@@ -283,3 +283,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
