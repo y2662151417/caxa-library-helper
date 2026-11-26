@@ -18,19 +18,26 @@ PANEL_ACTIONS = {
     "start_view_guide", "next_view", "previous_view", "show_view_guide", "end_view_guide",
     "define_symbol", "edit_symbol_attributes", "fill_titleblock_attributes", "finish_gallery_insert",
     "calibrate_define", "calibrate_attr_edit", "calibrate_attr_fill", "calibrate_symbol_name", "calibrate_gallery_finish",
-    "probe_cad_controls",
+    "probe_cad_controls", "apply_color_layer", "calibrate_layer_field",
 }
 
-def request_panel_action(storage: Path, action: str, signature: str) -> Path:
+def request_panel_action(storage: Path, action: str, signature: str, *, target_layer: str | None = None) -> Path:
     """Queue one allow-listed UI action for the local AHK controller.
 
     The request is atomically replaced and bound to the exact published job.
-    It contains no drawing content and cannot carry arbitrary commands.
+    The only optional payload is a validated target-layer name for the color-layer action.
     """
     if action not in PANEL_ACTIONS:
         raise ValueError("不允许的面板操作")
     if not isinstance(signature, str) or not re.fullmatch(r"[0-9a-f]{64}", signature):
         raise ValueError("当前任务签名无效，不能发送面板操作")
+    if action == "apply_color_layer":
+        if (not isinstance(target_layer, str) or not target_layer.strip()
+                or len(target_layer.strip()) > 64
+                or re.search(r"[\r\n\t=;#\[\]|]", target_layer)):
+            raise ValueError("目标图层名称无效，拒绝发送")
+    elif target_layer is not None:
+        raise ValueError("当前操作不接受目标图层参数")
     storage.mkdir(parents=True, exist_ok=True)
     conf = configparser.ConfigParser(interpolation=None)
     conf.optionxform = str
@@ -40,6 +47,8 @@ def request_panel_action(storage: Path, action: str, signature: str) -> Path:
         "job_signature": signature,
         "created_at": str(time.time()),
     }
+    if target_layer is not None:
+        conf["request"]["target_layer"] = target_layer.strip()
     target = storage / "panel_action.ini"
     fd, tmpname = tempfile.mkstemp(prefix=".panel_action_", suffix=".tmp", dir=str(storage))
     try:
