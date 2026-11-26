@@ -23,11 +23,14 @@ DB_PATH = core.storage_dir() / 'progress.sqlite3'
 class App:
     def __init__(self, master):
         self.root=master
+        self.mini_mode = os.environ.get('CAXA_MINI_PANEL') == '1'
+        self._selector = None
+        self._floating = None
         try:
             version=(Path(__file__).with_name('VERSION.txt')).read_text(encoding='ascii').strip()
         except OSError:
             version='未知'
-        self.root.title(f'CAXA 图纸管理工作台 v{version}')
+        self.root.title(f'CAXA 高级管理工作台 v{version}')
         width=min(1240,max(960,master.winfo_screenwidth()-60))
         height=min(820,max(650,master.winfo_screenheight()-95))
         self.root.geometry(f'{width}x{height}')
@@ -85,7 +88,9 @@ class App:
         # Only one published job is checked, not the whole drawing library.
         # This does not replace the Windows/CAXA side's live document checks.
         self._job_guard_timer = self.root.after(15000, self.poll_job_guard)
-        self.root.protocol('WM_DELETE_WINDOW',self.close)
+        self.root.protocol('WM_DELETE_WINDOW', self.hide_admin_workbench if self.mini_mode else self.close)
+        if self.mini_mode:
+            self.root.withdraw()
 
     def load_view_template(self):
         try:
@@ -245,10 +250,57 @@ class App:
                     return
             except Exception: pass
         self._floating=floating_panel.Panel(self)
-        # The full workbench is for one-time setup and batch management only.
-        # Keep it behind CAD; the compact, no-activate palette stays on top.
-        try:self.root.after(900,self.root.lower)
-        except tk.TclError:pass
+        # In mini mode the full management root remains withdrawn; the compact
+        # drawing selector is opened on demand from the floating assistant.
+        if not self.mini_mode:
+            try:self.root.after(900,self.root.lower)
+            except tk.TclError:pass
+
+    def open_drawing_selector(self):
+        """Open the compact, task-focused drawing picker instead of the admin dashboard."""
+        if self._selector is not None:
+            try:
+                if self._selector.exists():
+                    self._selector.show()
+                    return
+            except Exception:
+                self._selector = None
+        if self._floating is not None:
+            try:
+                self._floating.suspend_topmost()
+            except Exception:
+                pass
+        from drawing_selector import DrawingSelector
+        self._selector = DrawingSelector(self)
+
+    def open_admin_workbench(self):
+        """Show the full management workspace only when explicitly requested."""
+        if self._selector is not None:
+            try:
+                self._selector.close(restore_panel=False)
+            except Exception:
+                self._selector = None
+        if self._floating is not None:
+            try:
+                self._floating.suspend_topmost()
+            except Exception:
+                pass
+        self.root.deiconify()
+        self.root.state('normal')
+        self.root.lift()
+        self.root.focus_force()
+
+    def hide_admin_workbench(self):
+        """Hide the advanced workspace and return to the compact assistant."""
+        try:
+            self.root.withdraw()
+        except tk.TclError:
+            pass
+        if self._floating is not None:
+            try:
+                self._floating.resume_topmost()
+            except Exception:
+                pass
 
     def daily_backup(self):
         marker=core.storage_dir()/'last_backup_day.txt'
@@ -268,8 +320,8 @@ class App:
             return
         if not silent: messagebox.showinfo('本地备份完成',str(dest))
 
-    def scan(self):
-        folder=filedialog.askdirectory(title='选择包含 EXB 的根文件夹')
+    def scan(self,parent=None):
+        folder=filedialog.askdirectory(title='选择包含 EXB 的根文件夹',parent=parent or self.root)
         if not folder: return
         self.path=None  # prevent accidentally editing the previous root's selection
         self.root_path.set(folder)
@@ -316,6 +368,10 @@ class App:
                 self.drawings.selection_set(iid)
                 self.drawings.see(iid)
         if keep: self.load_detail(keep)
+        selector=getattr(self,'_selector',None)
+        if selector is not None:
+            try: selector.refresh()
+            except Exception: pass
 
     def select(self,event=None):
         selection=self.drawings.selection()
@@ -573,23 +629,26 @@ class App:
                      if (view,kind) in by and by[(view,kind)]['status']!='不需要')
 
     def open_work_copy(self):
-        if not self.require():return
+        if not self.require():return False
         try:
             copy=core.ensure_working_copy(self.c,self.path)
             self.status_var.set('已在工作副本目录准备图纸：'+copy.name+'。原图保持不变。')
             self.sync_job()
-            self.open_file(file_to_open=copy)
-        except Exception as e:messagebox.showerror('工作副本失败',str(e))
+            return self.open_file(file_to_open=copy)
+        except Exception as e:
+            messagebox.showerror('工作副本失败',str(e),parent=self._selector.win if self._selector else self.root)
+            return False
 
     def open_file(self,file_to_open=None):
-        if not self.require(): return
+        if not self.require(): return False
         if file_to_open is None:
-            messagebox.showwarning('源图保护','禁止从工作台直接打开原图进行编辑，请使用“创建并打开工作副本”。')
-            return
+            messagebox.showwarning('源图保护','禁止从工作台直接打开原图进行编辑，请使用“打开工作副本”。',
+                                   parent=self._selector.win if self._selector else self.root)
+            return False
         p=Path(file_to_open)
         if not p.is_file():
-            messagebox.showerror('文件不存在',str(p))
-            return
+            messagebox.showerror('文件不存在',str(p),parent=self._selector.win if self._selector else self.root)
+            return False
         try:
             if os.name=='nt':
                 # On every new working-copy open, queue a read-only attempt.
@@ -617,8 +676,10 @@ class App:
             elif sys.platform=='darwin':subprocess.Popen(['open',str(p)])
             else:subprocess.Popen(['xdg-open',str(p)])
             self.status_var.set('已请求打开工作副本。CAXA 自动参数采集尚未通过实机验证，本版仅复用有效缓存或人工复制。')
+            return True
         except Exception as e:
-            messagebox.showerror('打开失败',str(e))
+            messagebox.showerror('打开失败',str(e),parent=self._selector.win if self._selector else self.root)
+            return False
 
     def check(self):
         issues=core.checks(self.c)
