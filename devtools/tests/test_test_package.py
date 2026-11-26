@@ -43,7 +43,7 @@ class IsolatedTestPackageTests(unittest.TestCase):
                     launcher,
                 )
                 self.assertNotIn(
-                    r"\CAXA_Library_Helper""",
+                    chr(92) + "CAXA_Library_Helper" + '"',
                     launcher,
                 )
                 self.assertNotIn(r"UserData\.caxa_userdata.json", launcher)
