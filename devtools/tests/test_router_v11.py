@@ -62,12 +62,14 @@ class RouterTaskRunnerTests(unittest.TestCase):
         )
         self.assertEqual(action.key, "review")
 
-    def test_no_slots_still_loads_saved_template(self):
+    def test_no_slots_starts_production_from_saved_template(self):
         action = router_v11.choose(
             drawing(), work_exists=True, slots=[],
             configured_views=True, changed=False
         )
         self.assertEqual(action.key, "prepare_views")
+        self.assertEqual(action.label, "开始制作本张图纸")
+        self.assertIn("直接启动", action.reason)
 
     def test_missing_work_copy_precedes_cad_actions(self):
         action = router_v11.choose(
