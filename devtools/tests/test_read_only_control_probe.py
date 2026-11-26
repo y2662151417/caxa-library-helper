@@ -87,7 +87,7 @@ class ReadOnlyControlProbeTests(unittest.TestCase):
         self.assertEqual(active_hotkeys, ["F2::{"])
         self.assertIn("#HotIf isConfiguredCaxaForeground()", source)
         self.assertIn('WinGetProcessName("A")', source)
-        self.assertNotRegex(source, r"(?m)^\\s*\\^!.*::")
+        self.assertNotRegex(source, r"(?m)^\s*\^!.*::")
 
 
 if __name__ == "__main__":
