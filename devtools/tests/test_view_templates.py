@@ -28,6 +28,36 @@ class ViewTemplateTests(unittest.TestCase):
             ['主视图', '俯视图', '左视图']
         )
 
+    def test_plan_views_creates_exactly_four_or_six_database_slots(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'drawings'
+            root.mkdir()
+            (root / 'A-01_双视图部件.exb').write_bytes(b'fixture')
+            (root / 'A-02_三视图部件.exb').write_bytes(b'fixture')
+            db = core.connect(Path(td) / 'progress.sqlite3')
+            try:
+                self.assertEqual(core.scan_folder(db, root, exclude_dirs=()), 2)
+                rows = {row['code']: row for row in core.list_drawings(db)}
+                cases = (
+                    ('A-01', ['主视图', '左视图'], 4),
+                    ('A-02', ['主视图', '俯视图', '左视图'], 6),
+                )
+                for code, selected, expected in cases:
+                    with self.subTest(code=code):
+                        path = rows[code]['path']
+                        count = core.plan_views(db, path, core.validate_view_template(selected))
+                        slots = list(core.slots_for(db, path))
+                        self.assertEqual(count, expected)
+                        self.assertEqual(len(slots), expected)
+                        self.assertEqual(
+                            {slot['size_kind'] for slot in slots},
+                            {'带尺寸', '无尺寸'}
+                        )
+            finally:
+                db.close()
+
     def test_missing_front_or_left_is_rejected(self):
         for selected in (['主视图', '俯视图'], ['左视图'], ['俯视图', '左视图']):
             with self.subTest(selected=selected):
