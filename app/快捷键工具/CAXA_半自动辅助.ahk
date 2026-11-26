@@ -1197,7 +1197,8 @@ selectFilteredObjects(expectedSignature) {
             return false
         }
         hwnd := findUniqueWorkWindow(workFile)
-        if !hwnd || WinGetPID("ahk_id " hwnd) = 0 || !titleHasExactWorkFile(WinGetTitle("ahk_id " hwnd), workFile) {
+        if !hwnd || StrLower(WinGetProcessName("ahk_id " hwnd)) != StrLower(cadExe)
+          || !titleHasExactWorkFile(WinGetTitle("ahk_id " hwnd), workFile) {
             autoTip("未找到唯一的当前工作副本；未执行全选")
             return false
         }
@@ -1236,7 +1237,7 @@ applyColorLayer(expectedSignature, targetLayer) {
         autoTip("CAD 辅助已暂停；未修改选集属性")
         return false
     }
-    if targetLayer = "" || StrLen(targetLayer) > 64 || RegExMatch(targetLayer, "[\\r\\n\\t=;#\\[\\]|]") {
+    if targetLayer = "" || StrLen(targetLayer) > 64 || RegExMatch(targetLayer, "[\r\n\t=;#\[\]|]") {
         autoTip("目标图层名称无效；已拒绝修改")
         return false
     }
@@ -1252,7 +1253,8 @@ applyColorLayer(expectedSignature, targetLayer) {
             return false
         }
         hwnd := findUniqueWorkWindow(workFile)
-        if !hwnd || !cadOk(true) || !jobWindowMatches(hwnd, workFile) {
+        if !hwnd || StrLower(WinGetProcessName("ahk_id " hwnd)) != StrLower(cadExe)
+          || !jobWindowMatches(hwnd, workFile) {
             autoTip("未能唯一定位当前工作副本；未修改属性")
             return false
         }
