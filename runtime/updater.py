@@ -80,9 +80,9 @@ def _encode_request_url(url: str) -> str:
     query = quote(parts.query, safe="=&?/:@!$'()*+,;%-._~")
     return urlunsplit((parts.scheme, parts.netloc, path, query, ""))
 
+
 def _read_url(url: str, timeout: float, opener=None, limit: int = MAX_FILE_BYTES) -> bytes:
-'()*+,;=-._~")
-    query = quote(parts.query, safe="=&?/:@!    request = Request(_encode_request_url(url), headers={"User-Agent": USER_AGENT, "Accept": "application/json, application/octet-stream"})
+    request = Request(_encode_request_url(url), headers={"User-Agent": USER_AGENT, "Accept": "application/json, application/octet-stream"})
     open_fn = opener or urlopen
     try:
         response = open_fn(request, timeout=timeout)
@@ -95,7 +95,6 @@ def _read_url(url: str, timeout: float, opener=None, limit: int = MAX_FILE_BYTES
     if len(data) > limit:
         raise UpdateError(f"下载内容超过限制（{limit} bytes）：{url}")
     return data
-
 
 def _load_config(config_path: Path) -> dict:
     try:
