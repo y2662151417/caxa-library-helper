@@ -63,6 +63,9 @@ class ReadOnlyControlProbeTests(unittest.TestCase):
         ):
             self.assertIn(token, body)
         self.assertIn("controls_all_", body)
+        self.assertIn('outputDir := dataDir "\\diagnostics"', body)
+        self.assertLess(body.index('outputDir := dataDir "\\diagnostics"'), body.index("if isPaused"))
+        self.assertIn("try DirCreate outputDir", body)
         self.assertIn("maxWindows := 20", body)
         self.assertIn("maxControls := 1200", body)
         self.assertIn("maxControlsPerWindow := 300", body)
@@ -77,6 +80,7 @@ class ReadOnlyControlProbeTests(unittest.TestCase):
     def test_standalone_probe_uses_configured_data_directory(self):
         source = (ROOT / "app" / "快捷键工具" / "CAXA_控件探针_只读.ahk").read_text(encoding="utf-8")
         self.assertIn('EnvGet("CAXA_HELPER_DATA_DIR")', source)
+        self.assertIn('DirCreate dataDir "\\diagnostics"', source)
         self.assertIn('"1", "图层设置（尺寸线层）"', source)
         self.assertIn('"5", "图符入库"', source)
 
