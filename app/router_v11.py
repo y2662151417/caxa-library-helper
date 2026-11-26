@@ -1,7 +1,7 @@
-"""Pure decision logic for the compact panel (no CAD automation).
+"""Pure decision logic for the compact panel.
 
-'Next action' describes a safe *user-visible* task, not proof that a CAD
-operation succeeded. Unknown hardware/software state always requires review.
+The primary action starts a real CAXA command when the task is ready; it must
+not route the operator to a text-only instruction page.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -31,6 +31,11 @@ def choose(drawing, *, work_exists: bool, slots: list[dict],
         if configured_views:
             return Action('prepare_views', '载入本类视图计划', '套用模板并供你核对，不自动选择 CAD 图元。')
         return Action('configure_views', '确认本张需要的视图', '当前模板没有视图清单，请在主工作台设置。')
+    if len(slots) not in (4, 6):
+        return Action('blocked', '视图计划异常', '当前计划不是双视图4项或三视图6项；请先核对本张图纸的视图模板。')
     if any(s['status'] not in ('已复核','不需要') for s in slots):
-        return Action('cad_guide', '查看本张 CAD 制作提示', '清图和基点由你完成；本工具不会假装自动修改 CAD。')
+        return Action(
+            'define_symbol', f'开始定义图符（{len(slots)}项）',
+            '直接启动 CAXA 原生 Symdef 并输入本张视图数量；视图选集和基点由 CAXA 连续衔接，无需返回助手逐项点击下一步。'
+        )
     return Action('review', '复核并记录本张结果', '需要你确认实际图符入库并重新插入检查。')
