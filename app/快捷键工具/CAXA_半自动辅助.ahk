@@ -641,6 +641,24 @@ startSymbolDefinition(expectedSignature) {
     return true
 }
 
+
+findUniqueVisibleProbeDialog(pid, mainHwnd) {
+    matches := []
+    for hwnd in WinGetList("ahk_pid " pid) {
+        if hwnd = mainHwnd
+            continue
+        try {
+            if !(WinGetStyle("ahk_id " hwnd) & 0x10000000)
+                continue
+            if WinGetTitle("ahk_id " hwnd) = ""
+                continue
+            matches.Push(hwnd)
+        } catch {
+        }
+    }
+    return matches.Length = 1 ? matches[1] : 0
+}
+
 ; Read-only inspection of the exact published CAXA window/control tree.
 ; This function never activates windows, sends CAD keys, clicks controls, or reads control text.
 probeCaxaControls(expectedSignature) {
@@ -703,7 +721,7 @@ probeCaxaControls(expectedSignature) {
     ; symbol-definition prompts and main drawing are inspected on the main HWND.
     targetHwnd := mainHwnd
     if stage = "1" || stage = "2" || stage = "5"
-        targetHwnd := findUniqueCalibrationDialog(pid, mainHwnd)
+        targetHwnd := findUniqueVisibleProbeDialog(pid, mainHwnd)
     if !targetHwnd {
         autoTip("未找到唯一的 CAXA 对话框；请只保留一个目标弹窗后重试")
         return false
