@@ -12,6 +12,29 @@ import sqlite3
 
 VIEW_TYPES = ('主视图', '俯视图', '左视图', '右视图', '剖视图', '局部视图')
 KINDS = ('无尺寸', '带尺寸')
+DEFAULT_VIEW_TEMPLATE = ('主视图', '俯视图', '左视图')
+TWO_VIEW_TEMPLATE = ('主视图', '左视图')
+
+
+def validate_view_template(selected):
+    """Validate the two production presets: front+left, optionally with top."""
+    if not isinstance(selected, (list, tuple)):
+        raise ValueError('视图模板必须是视图名称列表')
+    if any(not isinstance(view, str) for view in selected):
+        raise ValueError('视图名称必须为文本')
+    if len(selected) != len(set(selected)):
+        raise ValueError('视图模板存在重复视图')
+    chosen = set(selected)
+    if chosen == set(TWO_VIEW_TEMPLATE):
+        return list(TWO_VIEW_TEMPLATE)
+    if chosen == set(DEFAULT_VIEW_TEMPLATE):
+        return list(DEFAULT_VIEW_TEMPLATE)
+    raise ValueError('默认视图模板只能选择“主视图+左视图”或“主视图+俯视图+左视图”')
+
+
+def view_template_summary(selected):
+    views = validate_view_template(selected)
+    return f"默认方案：{'、'.join(views)}｜带尺寸/无尺寸，共 {len(views) * 2} 个版本"
 FIELDS = ('带宽', '轴径', '筒径')
 # Each item is signed off by the operator. They are not EXB introspection results.
 QC_ITEMS = (

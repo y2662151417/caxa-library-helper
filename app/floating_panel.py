@@ -101,7 +101,9 @@ class Panel:
         ttk.Label(body,textvariable=self.context,wraplength=330,
                   font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(5,2))
         ttk.Label(body,textvariable=self.block_name_status,wraplength=330,
-                  foreground='#24527a').pack(anchor='w',pady=(0,8))
+                  foreground='#24527a').pack(anchor='w',pady=(0,5))
+        ttk.Label(body,textvariable=self.app.view_template_summary_var,wraplength=330,
+                  foreground='#666').pack(anchor='w',pady=(0,7))
         self.main_button=ttk.Button(body,textvariable=self.recommended,command=self.do_recommended)
         self.main_button.pack(fill='x',pady=(2,3),ipady=8)
         ttk.Label(body,textvariable=self.action_reason,wraplength=330,
@@ -121,7 +123,6 @@ class Panel:
         ttk.Button(w,text='清理图纸',command=self.open_cleanup_window).pack(fill='x',pady=3,ipady=4)
         ttk.Button(w,text='开始定义图符',command=self.define_symbol).pack(fill='x',pady=3,ipady=4)
         ttk.Button(w,text='属性与入库',command=self.open_insert_window).pack(fill='x',pady=3,ipady=4)
-        ttk.Button(w,text='视图计划（首次或变更时）',command=self.open_views_window).pack(fill='x',pady=3,ipady=4)
         ttk.Separator(w).pack(fill='x',pady=7)
         ttk.Button(w,text='连接当前 CAXA',command=self.connect_cad).pack(fill='x',pady=3)
     def collapse_panel(self):
@@ -187,20 +188,36 @@ class Panel:
         ttk.Label(w,text='颜色／图层自动处理暂不开放：红、绿、白的公司标准映射尚未完整核实。这里不要求你逐条新增规则，也不会猜测图层或线型。',
                   wraplength=315,foreground='#8a5a20').pack(anchor='w',pady=5)
     def open_views_window(self):
-        # Low-frequency setup only. Daily work stays on the compact home page.
-        w=self._dialog('views','视图计划设置','390x285')
+        # This is a batch/type-level preference, not a per-drawing prompt.
+        w=self._dialog('views','视图模板设置','370x285')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
         body=ttk.Frame(w,padding=10);body.pack(fill='both',expand=True)
-        ttk.Label(body,text='视图计划设置',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,4))
-        ttk.Label(body,text='按本张图纸需要勾选视图。保存后，每种视图按带尺寸、无尺寸两个版本建立任务；单个图符最多六项。',wraplength=360,foreground='#555').pack(anchor='w',pady=3)
-        choices=ttk.LabelFrame(body,text='需要制作的视图类型',padding=6);choices.pack(fill='x',pady=5)
-        for i,v in enumerate(core.VIEW_TYPES):
-            ttk.Checkbutton(choices,text=v,variable=self.app.view_var[v]).grid(row=i//3,column=i%3,sticky='w',padx=4,pady=2)
-        rowp=ttk.Frame(body);rowp.pack(fill='x',pady=5)
-        ttk.Button(rowp,text='载入模板视图',command=self.prepare_views).pack(side='left',fill='x',expand=True,padx=(0,3))
-        ttk.Button(rowp,text='保存当前计划',command=self._update_view_plan_from_panel).pack(side='left',fill='x',expand=True,padx=(3,0))
-        ttk.Label(body,text='日常制作不需要进入此窗口。返回主面板点击“开始定义图符”，助手会自动启动 CAXA Symdef 并输入当前计划的视图数量。',wraplength=360,foreground='#24527a').pack(anchor='w',pady=5)
+        ttk.Label(body,text='默认视图模板',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,4))
+        ttk.Label(body,text='同一类型的图纸只需设置一次。主视图和左视图固定，俯视图按该批图纸的实际要求决定是否需要。',
+                  wraplength=335,foreground='#555').pack(anchor='w',pady=3)
+        current=list(self.app.last_view_template)
+        mode=tk.StringVar(value='three' if current==list(core.DEFAULT_VIEW_TEMPLATE) else 'two')
+        choices=ttk.LabelFrame(body,text='选择制作方案',padding=7);choices.pack(fill='x',pady=6)
+        ttk.Radiobutton(choices,text='三视图：主视图 + 俯视图 + 左视图（6个版本）',
+                        variable=mode,value='three').pack(anchor='w',pady=4)
+        ttk.Radiobutton(choices,text='双视图：主视图 + 左视图（4个版本）',
+                        variable=mode,value='two').pack(anchor='w',pady=4)
+        def save():
+            selected=list(core.DEFAULT_VIEW_TEMPLATE if mode.get()=='three' else core.TWO_VIEW_TEMPLATE)
+            try:
+                self.app.save_view_template(selected)
+            except Exception as e:
+                messagebox.showerror('模板保存失败',str(e),parent=self.win);return
+            self.status.set('视图模板已保存；尚未建立视图计划的图纸会自动沿用。')
+            self.update_recommendation()
+            self._show_home_page()
+            messagebox.showinfo('视图模板已保存',
+                core.view_template_summary(selected)+'\n\n已建立视图计划的图纸不会被自动改动。',
+                parent=self.win)
+        ttk.Button(body,text='保存视图模板',command=save).pack(fill='x',pady=(7,4),ipady=5)
+        ttk.Label(body,text='模板保存在本机。已有图纸计划不会被覆盖；后续尚未建立计划的图纸自动使用新方案。',
+                  wraplength=335,foreground='#666').pack(anchor='w',pady=3)
 
     def _update_view_plan_from_panel(self):
         if not self.require():return
@@ -291,7 +308,7 @@ class Panel:
         except Exception as e:
             messagebox.showwarning('尚不能标记完成',str(e),parent=self.win)
     def open_settings_window(self):
-        w=self._dialog('settings','设置','350x315')
+        w=self._dialog('settings','设置','350x390')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
         ttk.Label(w,text='制作模板',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,4))
@@ -301,6 +318,12 @@ class Panel:
         self.combo.bind('<<ComboboxSelected>>',self._on_profile_display_change)
         ttk.Checkbutton(w,text='切换图纸时保留当前模板',variable=self.lock_profile,
                         command=self._save_profile_preference).pack(anchor='w',pady=5)
+        ttk.Separator(w).pack(fill='x',pady=7)
+        ttk.Label(w,text='视图方案',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(2,2))
+        ttk.Label(w,textvariable=self.app.view_template_summary_var,wraplength=315,
+                  foreground='#555').pack(anchor='w',pady=2)
+        ttk.Button(w,text='设置视图模板（双视图 / 三视图）',
+                   command=self.open_views_window).pack(fill='x',pady=4,ipady=4)
         ttk.Separator(w).pack(fill='x',pady=7)
         ttk.Button(w,text='首次校准其他 CAD 控件',command=self.open_calibration_window).pack(fill='x',pady=4,ipady=4)
         ttk.Label(w,text='颜色、图层和线型规则由软件按已确认的公司标准维护。尚未核实的映射不会自动执行，也不需要你逐项配置。',
@@ -341,6 +364,13 @@ class Panel:
             except tk.TclError:pass
         self._after_ids.clear()
 
+    def _default_profile_id(self):
+        # Prefer the first equipment-specific profile; generic naming is a fallback.
+        for profile in self.profiles:
+            if profile.get('required_params') or profile.get('view_plan'):
+                return profile['id']
+        return self.profiles[0]['id']
+
     def _load_profile_preference(self):
         ids={x['id'] for x in self.profiles}
         try:
@@ -348,11 +378,7 @@ class Panel:
             preferred=data.get('profile_id','')
             if preferred in ids:return preferred
         except (OSError,ValueError,TypeError):pass
-        # The current project is mainly vertical take-up equipment; use its
-        # template as the first-run default when available, but never force it.
-        if 'generic_gallery' in ids:return 'generic_gallery'
-        if 'vertical_weight_takeup' in ids:return 'vertical_weight_takeup'
-        return self.profiles[0]['id']
+        return self._default_profile_id()
 
     def _load_profile_lock(self):
         try:
@@ -405,7 +431,7 @@ class Panel:
                 self.last_path=self.app.path
                 self._color_flow_signature='';self._color_flow_source='';self._color_flow_profile_hash=''
                 if not self.lock_profile.get():
-                    self.profile_choice.set('generic_gallery' if any(p['id']=='generic_gallery' for p in self.profiles) else self.profiles[0]['id'])
+                    self.profile_choice.set(self._default_profile_id())
                     self.profile_display.set(self._profile_display_name(self.profile_choice.get()))
                     self.update_color_rule_choices();self._save_profile_preference()
                     self.status.set('已切换图纸，模板恢复通用默认。请核实设备类别。')
@@ -730,7 +756,7 @@ class Panel:
         block_info=core.block_name_for_path(self.app.c,self.app.path)
         has_exact_block_name=(block_info.get('status')=='已匹配' and bool(block_info.get('block_name')))
         return router_v11.choose(dict(d),work_exists=bool(work and work.is_file()),
-            slots=rows,configured_views=bool(self.current_profile().get('view_plan')),
+            slots=rows,configured_views=bool(self.app.last_view_template),
             changed=changed,has_exact_block_name=has_exact_block_name)
 
 
@@ -983,20 +1009,26 @@ class Panel:
 
     def prepare_views(self):
         if not self.require():return
-        p=self.current_profile()
-        view=p.get('view_plan',[])
-        if not view:
-            messagebox.showwarning('未设置视图计划','当前模板没有已确认的视图计划。请在设置中选择正确模板，或在图纸管理中建立本张计划。',parent=self.win)
-            return
-        selected={x['view'] for x in view}
-        pairs={(x['view'],x['kind']) for x in view}
-        if any((v,'带尺寸') not in pairs or (v,'无尺寸') not in pairs for v in selected):
-            messagebox.showwarning('视图规则需人工确认','当前计划含单一尺寸版本，不能自动转换为成对视图。',parent=self.win)
-            return
-        for v in core.VIEW_TYPES:self.app.view_var[v].set(v in selected)
-        self.app.update_plan()
-        self.status.set('视图计划已套用。视图选集和基点仍按 CAXA 实际提示完成。')
-        self._show_home_page()
+        try:
+            selected=core.validate_view_template(self.app.last_view_template)
+            existing=list(core.slots_for(self.app.c,self.app.path))
+            if existing:
+                existing_views={row['view_type'] for row in existing}
+                if existing_views==set(selected) and len(existing)==2*len(selected):
+                    self.status.set('本张图纸已按当前视图模板建立任务，无需重复设置。')
+                else:
+                    messagebox.showwarning('本张已有视图计划',
+                        '当前图纸已经存在视图任务。为避免覆盖已做的进度，本次不会自动替换。\n'
+                        '如确需更换，请先在图纸管理中核对并处理旧计划。',
+                        parent=self.win)
+                self._show_home_page()
+                return
+            if not self.app.update_plan():
+                return
+            self.status.set('已按当前模板建立视图任务；视图选集和基点仍按 CAXA 实际提示完成。')
+            self._show_home_page()
+        except Exception as e:
+            messagebox.showerror('视图计划建立失败',str(e),parent=self.win)
     def complete_next(self):
         if not self.require():return
         d=core.get_drawing(self.app.c,self.app.path)
