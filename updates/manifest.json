@@ -1,6 +1,6 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.42.15",
+  "version": "0.42.16",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
@@ -35,8 +35,8 @@
     },
     {
       "path": "app/floating_panel.py",
-      "size": 64171,
-      "sha256": "17e40a88e6229db094436e73101cd74ad7bbdd01a1a9fa6501d6c15e49e3ed6f"
+      "size": 64343,
+      "sha256": "b122d80e522a5cef13a3aced7860f4d547dd05413957ea1fc1d8fcd897342538"
     },
     {
       "path": "app/guided.py",
@@ -72,7 +72,7 @@
     {
       "path": "app/VERSION.txt",
       "size": 8,
-      "sha256": "586cf4c110dc828c5f715bee175472a4594607cde4aa069e7db707944b1318f2"
+      "sha256": "a54dbebe14d65878499eb34725ec73a0901b10537014f883e921161fc547eda8"
     },
     {
       "path": "app/workflow_v08.py",
@@ -81,14 +81,14 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 90534,
-      "sha256": "bad4eb19c49a2ce9ac73cdeac296876906df3790f8d81ad3569d18cd4c69cc55",
+      "size": 87835,
+      "sha256": "77ce30fea5f342dc1debf198dd97f3b797eecf2a7b182656c925aceca14a6e96",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E5%8D%8A%E8%87%AA%E5%8A%A8%E8%BE%85%E5%8A%A9.ahk"
     },
     {
       "path": "app/快捷键工具/CAXA_控件探针_只读.ahk",
-      "size": 4776,
-      "sha256": "0e5723aa92c94ce670e665013d728a7f3b4d610011d7335f2bc955745283d452",
+      "size": 4942,
+      "sha256": "dc0a806d727826bfb53412a0e0f857f710e6cde8cf3c29ca38165bd9d969c838",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E6%8E%A7%E4%BB%B6%E6%8E%A2%E9%92%88_%E5%8F%AA%E8%AF%BB.ahk"
     },
     {
@@ -117,8 +117,8 @@
     },
     {
       "path": "app/快捷键工具/说明_快捷操作.md",
-      "size": 8430,
-      "sha256": "238f55f5b0b6a2405ad4d464c47db0ed728fd5673d76916cdd589c235ac2290b",
+      "size": 8702,
+      "sha256": "2f190b6bbd6c8bea59e63c4643b47f5cc74b7ce84f0e23e7de80a54d1bc6d563",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/%E8%AF%B4%E6%98%8E_%E5%BF%AB%E6%8D%B7%E6%93%8D%E4%BD%9C.md"
     },
     {
