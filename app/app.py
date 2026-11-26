@@ -41,6 +41,7 @@ class App:
         self.capture_source=None
         self.capture_started=None
         self.last_view_template=self.load_view_template()
+        self.view_template_summary_var=tk.StringVar(value=core.view_template_summary(self.last_view_template))
         self.iid_to_path={}
         self.root_path=tk.StringVar(value='')
         self.exclude_var=tk.StringVar(value='工作副本;中间格式;完成图库;图符输出')
@@ -52,7 +53,6 @@ class App:
         self.block_name_var=tk.StringVar(value='')
         self.block_name_status_var=tk.StringVar(value='尚未导入块名称清单')
         self.mode_var=tk.StringVar(value='待确认')
-        self.view_var={v:tk.BooleanVar(value=False) for v in core.VIEW_TYPES}
         self.status_var=tk.StringVar(value='状态：尚未加载任务')
         self._build()
         last_root_file=core.storage_dir()/'last_root.txt'
@@ -86,19 +86,20 @@ class App:
     def load_view_template(self):
         try:
             saved=json.loads((core.storage_dir()/'last_view_template.json').read_text(encoding='utf-8'))
-            selected=[x for x in saved if x in core.VIEW_TYPES]
-            return selected[:3] if len(selected)==len(set(selected)) else []
+            return core.validate_view_template(saved)
         except (OSError,ValueError,TypeError):
-            return []
+            return list(core.DEFAULT_VIEW_TEMPLATE)
 
     def save_view_template(self,selected):
-        # Contains only view types, never company file names or CAD data.
+        # Contains only the selected view preset, never company paths or CAD data.
+        selected=core.validate_view_template(selected)
         dest=core.storage_dir()/'last_view_template.json'
         dest.parent.mkdir(parents=True,exist_ok=True)
         tmp=dest.with_suffix('.tmp')
         tmp.write_text(json.dumps(selected,ensure_ascii=False),encoding='utf-8')
         os.replace(tmp,dest)
         self.last_view_template=list(selected)
+        self.view_template_summary_var.set(core.view_template_summary(selected))
 
     def is_manifest_parent(self,path):
         row=self.c.execute("SELECT 1 FROM manifest WHERE matched_path=? AND match_status='已匹配' LIMIT 1",(str(path),)).fetchone()
@@ -194,14 +195,12 @@ class App:
         ttk.Entry(params,textvariable=self.block_name_var,width=65,state='readonly').grid(row=9,column=0,columnspan=2,sticky='we',pady=3)
         ttk.Label(params,textvariable=self.block_name_status_var,foreground='#555',wraplength=480).grid(row=10,column=0,columnspan=2,sticky='w')
 
-        plan=ttk.LabelFrame(right,text='2. 视图任务：选需要的视图类型，自动生成“带尺寸/无尺寸”两项（先带尺寸，最多6项）',padding=8)
+        plan=ttk.LabelFrame(right,text='2. 视图模板（同类型图纸设置一次）',padding=8)
         plan.pack(fill='x',pady=4)
-        for i,v in enumerate(core.VIEW_TYPES):
-            ttk.Checkbutton(plan,text=v,variable=self.view_var[v]).grid(row=i//3,column=i%3,sticky='w',padx=3,pady=2)
-        ttk.Button(plan,text='更新当前图纸的视图计划',command=self.update_plan).grid(row=2,column=0,columnspan=3,sticky='we',pady=4)
-        plan.columnconfigure(0,weight=1)
-        plan.columnconfigure(1,weight=1)
-        plan.columnconfigure(2,weight=1)
+        ttk.Label(plan,textvariable=self.view_template_summary_var,
+                  font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=2)
+        ttk.Label(plan,text='每种视图自动建立带尺寸和无尺寸两个版本。双视图共4项，三视图共6项；修改请在悬浮助手的“设置”中完成。',
+                  wraplength=480,foreground='#555').pack(anchor='w',pady=3)
 
         version=ttk.LabelFrame(right,text='3. 视图版本记录（只表示人工确认，不自动检查 EXB 对象）',padding=8)
         version.pack(fill='both',expand=True,pady=5)
@@ -345,8 +344,6 @@ class App:
         ss=core.slots_for(self.c,path)
         for key,label,checked in core.qc_status(self.c,path):
             self.qc_vars[key].set(checked)
-        views={x['view_type'] for x in ss} if ss else set(self.last_view_template)
-        for v in core.VIEW_TYPES: self.view_var[v].set(v in views)
         for x in self.versions.get_children(): self.versions.delete(x)
         for s in ss:
             self.versions.insert('','end',values=(s['view_type'],s['size_kind'],s['status']))
@@ -497,19 +494,15 @@ class App:
 
     def update_plan(self):
         if not self.require(): return
-        chosen=[v for v in core.VIEW_TYPES if self.view_var[v].get()]
-        if not chosen:
-            messagebox.showwarning('无视图','至少选择一个视图类型。')
-            return
         try:
+            chosen=core.validate_view_template(self.last_view_template)
             n=core.plan_views(self.c,self.path,chosen)
-            self.save_view_template(chosen)
             self.sync_job()
             self.load_detail(self.path)
             self.refresh()
-            self.status_var.set('已建立 '+str(n)+' 项视图任务；不会在 CAD 内创建任何对象。')
+            self.status_var.set('已按当前视图模板建立 '+str(n)+' 项任务；CAD 图元仍由你在 CAXA 中选择。')
         except Exception as e:
-            messagebox.showerror('无法更新视图计划',str(e))
+            messagebox.showerror('无法建立视图计划',str(e))
 
     def set_version(self,state):
         if not self.require(): return
