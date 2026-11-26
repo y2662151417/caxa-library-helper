@@ -115,7 +115,7 @@ class Panel:
         ttk.Button(row,text='设置',command=self.open_settings_window).grid(row=0,column=2,sticky='ew',padx=(3,0))
 
     def open_actions_page(self):
-        w=self._dialog('actions','操作入口','350x365')
+        w=self._dialog('actions','操作入口','350x420')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
         ttk.Label(w,text='只在需要时进入对应操作；所有页面都在这个悬浮窗口内切换。',
@@ -125,6 +125,10 @@ class Panel:
         ttk.Button(w,text='属性与入库',command=self.open_insert_window).pack(fill='x',pady=3,ipady=4)
         ttk.Separator(w).pack(fill='x',pady=7)
         ttk.Button(w,text='连接当前 CAXA',command=self.connect_cad).pack(fill='x',pady=3)
+        ttk.Separator(w).pack(fill='x',pady=6)
+        ttk.Button(w,text='只读诊断 CAXA 控件',command=self.probe_cad_controls).pack(fill='x',pady=3,ipady=4)
+        ttk.Label(w,text='仅记录窗口/控件类别和位置；不读取图纸文字，不点击、不修改、不保存。',
+                  wraplength=315,foreground='#666').pack(anchor='w',pady=(2,0))
     def collapse_panel(self):
         if self._collapsed:return
         self._collapsed=True
@@ -551,6 +555,11 @@ class Panel:
         self._queue_ahk_action('bind_cad',
             '将尝试定位当前任务的工作副本窗口：\n图号：{code}\n工作副本：{work}\n\n找到唯一匹配窗口后会显示进程信息，请确认绑定。')
 
+    def probe_cad_controls(self):
+        self._queue_ahk_action('probe_cad_controls',
+            '请确认当前任务对应的 CAXA 工作副本是自制的虚构测试图纸。\n\n'
+            '诊断只读取窗口类名、控件类名和控件位置，不读取窗口标题、图纸文字、参数或实体内容；'
+            '不会点击、发送 CAD 命令、修改或保存图纸。\n\n继续？')
 
     def delete_duplicate_lines(self):
         self._show_home_page()
