@@ -558,7 +558,7 @@ class Panel:
     def probe_cad_controls(self):
         self._queue_ahk_action('probe_cad_controls',
             '请确认当前任务对应的 CAXA 工作副本是自制的虚构测试图纸。\n\n'
-            '诊断只读取窗口类名、控件类名和控件位置，不读取窗口标题、图纸文字、参数或实体内容；'
+            '诊断只读取窗口类名、控件类名和控件位置；不会保存或输出窗口标题、图纸文字、参数或实体内容；'
             '不会点击、发送 CAD 命令、修改或保存图纸。\n\n继续？')
 
     def delete_duplicate_lines(self):
