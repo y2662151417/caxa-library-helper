@@ -615,12 +615,18 @@ class App:
         if not self.path:return
         d=core.get_drawing(self.c,self.path)
         plan=self.get_view_plan()
-        if d and plan:
+        if d and d['working_path']:
             block_info=core.block_name_for_path(self.c,self.path)
             try:
-                preflight.validate_handoff(self.c,self.path,plan)
+                if plan:
+                    preflight.validate_handoff(self.c,self.path,plan)
+                else:
+                    # Everyday drawing operations need an exact, safe working
+                    # copy, but do not depend on the six-view guide being set up.
+                    preflight.validate_handoff(self.c,self.path,(),
+                                              require_view_plan=False,require_name=False)
             except ValueError:
-                return  # Invalid/stale CAD task has already been cleared above.
+                return  # Invalid/stale source or work copy: keep the controller closed.
             bridge.publish_active_job(core.storage_dir(),d,d['suggested_name'],plan,
                                       block_info['block_name'],block_info['status'])
             signature=bridge.expected_job_signature(d,d['suggested_name'],plan,
