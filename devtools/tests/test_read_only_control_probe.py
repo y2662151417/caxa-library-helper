@@ -44,6 +44,8 @@ class ReadOnlyControlProbeTests(unittest.TestCase):
         )
         self.assertIsNone(forbidden.search(body))
         self.assertIn("WinGetControls", body)
+        self.assertIn("findUniqueVisibleProbeDialog", source)
+        self.assertIn("0x10000000", source)
         self.assertIn("ControlGetPos", body)
         self.assertIn("FileAppend result", body)
 
