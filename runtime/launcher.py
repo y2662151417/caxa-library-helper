@@ -7,7 +7,11 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+_configured_root = os.environ.get("CAXA_INSTALL_ROOT", "").strip()
+ROOT = Path(_configured_root).resolve() if _configured_root else (
+    Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parent.parent
+)
 APP_DIR = ROOT / "app"
 RUNTIME_DIR = ROOT / "runtime"
 
@@ -41,6 +45,15 @@ def write_log(message: str) -> None:
 
 
 def main() -> int:
+    # The packaged EXE is also the read-only verifier invoked by AutoHotkey.
+    # Dispatch this CLI mode before starting Tkinter or the normal update path.
+    if len(sys.argv) > 1 and sys.argv[1] == "--check-job":
+        if not APP_DIR.is_dir():
+            return 2
+        sys.path.insert(0, str(APP_DIR))
+        from verify_action import main as verify_main
+        return verify_main(sys.argv[1:])
+
     if not APP_DIR.is_dir() or not (APP_DIR / "app.py").is_file():
         write_log("启动失败：app/app.py 不存在")
         print("程序文件不完整，请重新同步 CAXA 图库助手仓库。")
