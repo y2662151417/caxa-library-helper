@@ -1371,7 +1371,7 @@ checkActiveDrawing(expectedSignature) {
     } catch {
         result := "unknown"
     }
-    statusFile := dataDir "\\active_drawing_check.ini"
+    statusFile := dataDir "\active_drawing_check.ini"
     try {
         if FileExist(statusFile)
             FileDelete statusFile
@@ -2018,4 +2018,5 @@ startOrNextGuideShortcut(*) {
     else
         nextGuide()
 }
+
 
