@@ -1357,7 +1357,7 @@ statusInfo(*) {
         . "`n状态：" . (isPaused ? "暂停" : "启用")
     )
     for slot, title in Map("define","开始定义", "attrEdit","属性编辑", "attrFill","填入当前标题栏", "galleryFinish","完成入库", "layerField","图层字段") {
-        value := IniRead(cfgFile, slot, "x", "")
+        value := slot = "layerField" ? IniRead(cfgFile, slot, "control", "") : IniRead(cfgFile, slot, "x", "")
         description .= "`n" title "：" (value != "" ? "已标定" : "未标定")
     }
     description .= "`n删除重线：悬浮面板按钮（原生命令；人工选取/确认）"
