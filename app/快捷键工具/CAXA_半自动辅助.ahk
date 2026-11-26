@@ -722,6 +722,7 @@ probeCaxaControls(expectedSignature) {
         result .= "Visible top-level windows recorded: " windowHandles.Length nl
         result .= "Limits: " maxWindows " windows; " maxControlsPerWindow " controls/window; " maxControls " controls total" nl
         result .= "No window titles, control text, drawing text, parameters or screenshots were captured." nl
+        result .= "Per-control metadata: Win32 class, dialog control ID, visible/enabled state, GWL_STYLE and GWL_EXSTYLE." nl
         result .= "Only the exact task-bound CAXA process was inspected." nl
 
         for windowIndex, hwnd in windowHandles {
@@ -774,8 +775,40 @@ probeCaxaControls(expectedSignature) {
                 } catch {
                 }
                 result .= "  ClassNN: " ctrl
-                if controlHwnd
+                if controlHwnd {
                     result .= " | ControlHWND: " controlHwnd
+                    controlClass := ""
+                    controlIdText := "unavailable"
+                    visibleText := "unavailable"
+                    enabledText := "unavailable"
+                    styleText := "unavailable"
+                    exStyleText := "unavailable"
+                    try {
+                        classBuffer := Buffer(512, 0)
+                        classLength := DllCall("GetClassNameW", "Ptr", controlHwnd, "Ptr", classBuffer, "Int", 256, "Int")
+                        if classLength > 0
+                            controlClass := StrGet(classBuffer, classLength, "UTF-16")
+                    } catch {
+                    }
+                    try controlIdText := String(DllCall("GetDlgCtrlID", "Ptr", controlHwnd, "Int"))
+                    try visibleText := DllCall("IsWindowVisible", "Ptr", controlHwnd, "Int") ? "yes" : "no"
+                    try enabledText := DllCall("IsWindowEnabled", "Ptr", controlHwnd, "Int") ? "yes" : "no"
+                    try {
+                        getWindowLongFn := A_PtrSize = 8 ? "GetWindowLongPtrW" : "GetWindowLongW"
+                        longReturnType := A_PtrSize = 8 ? "Ptr" : "Int"
+                        style := DllCall(getWindowLongFn, "Ptr", controlHwnd, "Int", -16, longReturnType)
+                        exStyle := DllCall(getWindowLongFn, "Ptr", controlHwnd, "Int", -20, longReturnType)
+                        styleText := Format("0x{:08X}", style & 0xFFFFFFFF)
+                        exStyleText := Format("0x{:08X}", exStyle & 0xFFFFFFFF)
+                    } catch {
+                    }
+                    result .= " | Win32Class: " (controlClass != "" ? controlClass : "unavailable")
+                    result .= " | ControlID: " controlIdText
+                    result .= " | Visible: " visibleText " | Enabled: " enabledText
+                    result .= " | Style: " styleText " | ExStyle: " exStyleText
+                } else {
+                    result .= " | ControlHWND: unavailable | native metadata unavailable"
+                }
                 try {
                     ControlGetPos &cx, &cy, &cw, &ch, ctrl, "ahk_id " hwnd
                     result .= " | ClientRect: x=" cx " y=" cy " w=" cw " h=" ch
