@@ -20,8 +20,8 @@
     },
     {
       "path": "app/bridge.py",
-      "size": 8398,
-      "sha256": "66564a4872d320f4b95e062d50e54b103e1c8e8a5681eac07a1514f0015db6ca"
+      "size": 8512,
+      "sha256": "1ab5a1ac194bb59839b1a72318bc3bfb8d37e795e1bb74bae6aa0c56597ac0e7"
     },
     {
       "path": "app/core.py",
@@ -35,8 +35,8 @@
     },
     {
       "path": "app/floating_panel.py",
-      "size": 59807,
-      "sha256": "a7419140cec1a8ea11f3a0d59c94536add77568c82cf4a9cedd2ee9fb75007b5"
+      "size": 62175,
+      "sha256": "53896cc67beb868a468547af064b1b43bb1806c7bfbb629f3e9a703c572ecbb0"
     },
     {
       "path": "app/guided.py",
