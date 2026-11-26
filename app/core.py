@@ -34,7 +34,7 @@ def validate_view_template(selected):
 
 def view_template_summary(selected):
     views = validate_view_template(selected)
-    return f"{'、'.join(views)}｜带尺寸/无尺寸，共 {len(views) * 2} 个版本"
+    return f"默认方案：{'、'.join(views)}｜带尺寸/无尺寸，共 {len(views) * 2} 个版本"
 FIELDS = ('带宽', '轴径', '筒径')
 # Each item is signed off by the operator. They are not EXB introspection results.
 QC_ITEMS = (
