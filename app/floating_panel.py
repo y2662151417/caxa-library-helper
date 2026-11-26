@@ -353,7 +353,9 @@ class Panel:
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
         ttk.Label(w,text='单键快捷键',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,3))
-        ttk.Label(w,text='F4 全部图层打开｜F8 图层设置｜Pause 暂停/恢复。助手运行时 F4/F8 优先由助手响应；暂停后恢复 CAXA 原生按键。',
+        ttk.Label(w,text='F3 名称填入｜F4 全部图层打开｜F5 定义图符｜F6 下一视图｜F7 上一视图\n'
+                      'F8 图层设置｜F9 复制名称｜F10 属性编辑｜F11 标题栏属性｜F12 状态\n'
+                      'Pause 暂停/恢复（全局）。F3–F12 均为单键；助手接管时优先于 CAXA 原快捷键，暂停后交还。',
                   wraplength=315,foreground='#555').pack(anchor='w',pady=(0,7))
         ttk.Separator(w).pack(fill='x',pady=5)
         ttk.Label(w,text='制作模板',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,4))
