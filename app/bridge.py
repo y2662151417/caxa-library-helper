@@ -18,7 +18,8 @@ PANEL_ACTIONS = {
     "start_view_guide", "next_view", "previous_view", "show_view_guide", "end_view_guide",
     "define_symbol", "edit_symbol_attributes", "fill_titleblock_attributes", "finish_gallery_insert",
     "calibrate_define", "calibrate_attr_edit", "calibrate_attr_fill", "calibrate_symbol_name", "calibrate_gallery_finish",
-    "probe_cad_controls", "apply_color_layer", "calibrate_layer_field",
+    "probe_cad_controls", "apply_color_layer", "select_filtered_objects",
+    "calibrate_layer_combo", "calibrate_color_combo", "calibrate_linetype_combo", "calibrate_lineweight_combo",
 }
 
 def request_panel_action(storage: Path, action: str, signature: str, *, target_layer: str | None = None) -> Path:
