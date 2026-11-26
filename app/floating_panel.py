@@ -1026,8 +1026,9 @@ class Panel:
                 return
             if not self.app.update_plan():
                 return
-            self.status.set('已按当前模板建立视图任务；视图选集和基点仍按 CAXA 实际提示完成。')
+            self.status.set('已建立本张视图任务，正在直接启动 CAXA 图符定义。')
             self._show_home_page()
+            self.define_symbol()
         except Exception as e:
             messagebox.showerror('视图计划建立失败',str(e),parent=self.win)
     def complete_next(self):
