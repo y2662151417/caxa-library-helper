@@ -11,16 +11,17 @@ import core
 import bridge
 
 
-def validate_handoff(c, path, view_plan):
+def validate_handoff(c, path, view_plan, *, require_view_plan=True, require_name=True):
     d = core.get_drawing(c, path)
     if d is None or not d['present'] or not d['valid_name']:
         raise ValueError('当前图纸不在有效的源图清单内')
     block_info=core.block_name_for_path(c,path)
     has_exact_block_name=(block_info['status']=='已匹配' and bool(block_info['block_name']))
-    if not d['suggested_name'] and not has_exact_block_name:
-        raise ValueError('尚无建议名称，也没有按完整图号匹配的正式块名称')
-    if d['naming_mode'] == '待确认' and not has_exact_block_name:
-        raise ValueError('命名规则待确认，且没有正式块名称匹配，不能发布 CAD 快捷任务')
+    if require_name:
+        if not d['suggested_name'] and not has_exact_block_name:
+            raise ValueError('尚无建议名称，也没有按完整图号匹配的正式块名称')
+        if d['naming_mode'] == '待确认' and not has_exact_block_name:
+            raise ValueError('命名规则待确认，且没有正式块名称匹配，不能发布 CAD 快捷任务')
 
     source = Path(d['path'])
     root = Path(d['root'])
@@ -59,23 +60,29 @@ def validate_handoff(c, path, view_plan):
         raise ValueError('不同目录中存在同名 EXB：无法仅凭 CAD 窗口标题辨别当前图纸，已禁用快捷自动点击')
 
     effective_name=block_info['block_name'] if has_exact_block_name else d['suggested_name']
-    if has_exact_block_name:
-        same_gallery_name = [x for x in core.block_name_summary(c)
-                             if x['block_name'].casefold()==effective_name.casefold()
-                             and x['match_status']=='已匹配']
-    else:
-        same_gallery_name = [x for x in core.list_drawings(c)
-                             if x['present'] and x['suggested_name'] == effective_name]
-    if len(same_gallery_name) != 1:
-        raise ValueError('图库建议名称重复或正式块名称匹配不唯一，已禁用快捷自动点击')
+    if effective_name:
+        if has_exact_block_name:
+            same_gallery_name = [x for x in core.block_name_summary(c)
+                                 if x['block_name'].casefold()==effective_name.casefold()
+                                 and x['match_status']=='已匹配']
+        else:
+            same_gallery_name = [x for x in core.list_drawings(c)
+                                 if x['present'] and x['suggested_name'] == effective_name]
+        if len(same_gallery_name) != 1:
+            raise ValueError('图库建议名称重复或正式块名称匹配不唯一，已禁用快捷自动点击')
+    elif require_name:
+        raise ValueError('缺少可核对的正式块名称')
 
     plan = tuple(view_plan)
-    if not 1 <= len(plan) <= 6 or len(set(plan)) != len(plan):
-        raise ValueError('视图任务必须为1至6个互不重复的项目')
-    db_slots = {f"{s['view_type']}·{s['size_kind']}" for s in core.slots_for(c, path)
-                if s['status'] != '不需要'}
-    if set(plan) != db_slots:
-        raise ValueError('当前快捷视图顺序与数据库计划不一致，已拒绝发布')
+    if require_view_plan:
+        if not 1 <= len(plan) <= 6 or len(set(plan)) != len(plan):
+            raise ValueError('视图任务必须为1至6个互不重复的项目')
+        db_slots = {f"{s['view_type']}·{s['size_kind']}" for s in core.slots_for(c, path)
+                    if s['status'] != '不需要'}
+        if set(plan) != db_slots:
+            raise ValueError('当前快捷视图顺序与数据库计划不一致，已拒绝发布')
+    elif plan:
+        raise ValueError('基础任务不能携带未核对的视图计划')
     return d
 
 
@@ -90,10 +97,12 @@ def _validate_published_job(c, original: bytes, expected_signature: str | None =
     job = conf['active']
     path = job.get('source_path', '')
     plan_string = job.get('view_plan', '')
-    if not path or not plan_string:
-        raise ValueError('missing source path / view plan')
-    plan = tuple(plan_string.split('|'))
-    drawing = validate_handoff(c, path, plan)
+    if not path:
+        raise ValueError('missing source path')
+    plan = tuple(plan_string.split('|')) if plan_string else ()
+    drawing = validate_handoff(c, path, plan,
+                               require_view_plan=bool(plan),
+                               require_name=bool(plan))
     # Use the database's canonical production order: all dimensioned views,
     # followed by all no-dimension views. This must match App.get_view_plan()
     # and the signed order sent to the AutoHotkey controller.
@@ -101,7 +110,7 @@ def _validate_published_job(c, original: bytes, expected_signature: str | None =
         f"{slot['view_type']}·{slot['size_kind']}"
         for slot in core.slots_for(c, path)
         if slot['status'] != '不需要')
-    if plan != expected_plan:
+    if plan and plan != expected_plan:
         raise ValueError('view order changed')
     block_info=core.block_name_for_path(c,path)
     signature = bridge.expected_job_signature(
