@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'app'))
 import profiles
+import workflow_v08
 
 EXAMPLE = Path(__file__).resolve().parents[2] / 'app' / 'resources' / '图库模板_示例.json'
 class ProfileTests(unittest.TestCase):
@@ -25,12 +26,19 @@ class ProfileTests(unittest.TestCase):
     def test_conflicting_values_blocked(self):
         with self.assertRaises(profiles.ProfileError):
             profiles.parse_property_grid('带宽\tB800\n带宽\tB1000',self.p)
-    def test_unknown_color_rules_not_executable(self):
-        self.assertEqual(profiles.auto_executable_colors(self.p),[])
-    def test_all_rules_specified_but_only_explicit_value_active(self):
+    def test_only_colors_with_target_layers_are_executable(self):
+        ready=profiles.auto_executable_colors(self.p)
+        self.assertEqual([r['source_color'] for r in ready],['红色','绿色'])
+    def test_target_layer_is_sufficient_without_per_entity_linetype_values(self):
         p=copy.deepcopy(self.p)
-        p['color_rules'][0].update(target_linetype='CENTER',linetype_scale=1.0)
-        self.assertEqual(len(profiles.auto_executable_colors(p)),1)
+        p['color_rules']=[{'source_color':'红色','target_layer':'中心线层'},
+                          {'source_color':'绿色','target_layer':None}]
+        self.assertEqual([r['source_color'] for r in profiles.auto_executable_colors(p)],['红色'])
+    def test_color_plan_ignores_unmapped_colors(self):
+        plan=workflow_v08.safe_color_plan(self.p,selection_confirmed=True)
+        self.assertEqual([r['source_color'] for r in plan],['红色','绿色'])
+        self.assertEqual(plan[0]['target_layer'],'中心线层')
+        self.assertEqual(plan[1]['target_layer'],'虚线层')
     def test_more_than_six_rejected(self):
         p=copy.deepcopy(self.p);p['view_plan'].append({'view':'剖视图','kind':'带尺寸'})
         with self.assertRaises(profiles.ProfileError):profiles.validate(p)
