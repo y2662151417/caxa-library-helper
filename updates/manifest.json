@@ -118,8 +118,8 @@
     },
     {
       "path": "runtime/updater.py",
-      "size": 25805,
-      "sha256": "bbb9839e1c43f6e6c8b96aa83ec5dca03a762d39330755a94f097b3fc9e53589"
+      "size": 13670,
+      "sha256": "beedf1f4bbdafb7c522649a02d75560b1dba864ed762527196eaae4d2eb8401b"
     }
   ],
   "remove": []
