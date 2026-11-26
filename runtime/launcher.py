@@ -47,12 +47,23 @@ def write_log(message: str) -> None:
 def main() -> int:
     # The packaged EXE is also the read-only verifier invoked by AutoHotkey.
     # Dispatch this CLI mode before starting Tkinter or the normal update path.
-    if len(sys.argv) > 1 and sys.argv[1] == "--check-job":
+    if len(sys.argv) > 1 and sys.argv[1] in {"--check-job", "--smoke-ahk", "--smoke-tk"}:
         if not APP_DIR.is_dir():
             return 2
+        if sys.argv[1] == "--smoke-tk":
+            import tkinter as tk
+            root = tk.Tk()
+            root.withdraw()
+            root.update_idletasks()
+            root.destroy()
+            return 0
         sys.path.insert(0, str(APP_DIR))
-        from verify_action import main as verify_main
-        return verify_main(sys.argv[1:])
+        if sys.argv[1] == "--check-job":
+            from verify_action import main as verify_main
+            return verify_main(sys.argv[1:])
+        import ahk_runtime
+        installed = ahk_runtime.install_runtime()
+        return 0 if installed.is_file() else 1
 
     if not APP_DIR.is_dir() or not (APP_DIR / "app.py").is_file():
         write_log("启动失败：app/app.py 不存在")
