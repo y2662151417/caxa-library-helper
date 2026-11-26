@@ -45,7 +45,7 @@ class Panel:
         self.block_name_status=tk.StringVar(value='正式块名称：尚未匹配')
         self.status=tk.StringVar(value='正在检查 CAD 控制器…')
         self.recommended=tk.StringVar(value='先选择图纸')
-        self.action_reason=tk.StringVar(value='首次使用请打开图纸管理，选择目录并导入块名称清单。')
+        self.action_reason=tk.StringVar(value='点击“选择图纸”，选中一张图纸后点击“打开工作副本”。原图不会被直接修改。')
         self.guide_status=tk.StringVar(value='视图引导尚未启动')
         self._closed=False
         self._after_ids=set()
@@ -111,7 +111,7 @@ class Panel:
         row=ttk.Frame(body);row.pack(fill='x')
         for col in range(3):row.columnconfigure(col,weight=1)
         ttk.Button(row,text='更多操作',command=self.open_actions_page).grid(row=0,column=0,sticky='ew',padx=(0,3))
-        ttk.Button(row,text='图纸管理',command=self.open_workbench).grid(row=0,column=1,sticky='ew',padx=3)
+        ttk.Button(row,text='选择图纸',command=self.open_workbench).grid(row=0,column=1,sticky='ew',padx=3)
         ttk.Button(row,text='设置',command=self.open_settings_window).grid(row=0,column=2,sticky='ew',padx=(3,0))
 
     def open_actions_page(self):
@@ -150,15 +150,27 @@ class Panel:
         try:self.win.withdraw()
         except tk.TclError:pass
 
+    def suspend_topmost(self):
+        """Temporarily release the topmost flag while a focused task window is open."""
+        self._topmost_suspended_until=float('inf')
+        try:self.win.attributes('-topmost',False)
+        except tk.TclError:pass
+
+    def resume_topmost(self):
+        """Restore the compact assistant above CAXA after a task window closes."""
+        self._topmost_suspended_until=0.0
+        try:
+            if self.win.state()!='withdrawn':
+                self.win.attributes('-topmost',True)
+                self.win.lift()
+        except tk.TclError:pass
+
     def open_workbench(self):
         try:
-            self.app.root.deiconify()
-            self.app.root.state('normal')
-            self.app.root.lift()
-            self.app.root.focus_force()
-            self.status.set('图纸管理已打开。选择图纸后，回到本面板继续 CAD 操作。')
-        except tk.TclError:
-            self.status.set('无法打开图纸管理窗口，请从任务栏切换到主工作台。')
+            self.app.open_drawing_selector()
+            self.status.set('选择图纸窗口已打开。选中图纸后，点击“打开工作副本”即可继续。')
+        except Exception as e:
+            self.status.set('无法打开图纸选择窗口：'+str(e))
 
 
     def _dialog(self,key,title,geometry):
