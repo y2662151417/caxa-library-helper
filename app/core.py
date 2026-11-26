@@ -9,6 +9,9 @@ from pathlib import Path
 import re
 import shutil
 import sqlite3
+import zipfile
+import posixpath
+import xml.etree.ElementTree as ET
 
 VIEW_TYPES = ('主视图', '俯视图', '左视图', '右视图', '剖视图', '局部视图')
 KINDS = ('无尺寸', '带尺寸')
@@ -447,6 +450,80 @@ def manifest_summary(c):
     return c.execute('SELECT * FROM manifest ORDER BY id').fetchall()
 
 
+def read_block_names_xlsx(path):
+    """Read the first worksheet's first two columns without third-party packages.
+
+    Expected columns: 图号 | 块名称. Shared strings and inline strings are both
+    supported; formulas use their cached displayed value when present.
+    """
+    path = Path(path)
+    if path.suffix.lower() != '.xlsx':
+        raise ValueError('请选择 .xlsx 格式的 Excel 文件')
+    main_ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    rel_ns = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    pkg_rel_ns = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    ns = {'m': main_ns}
+    try:
+        with zipfile.ZipFile(path, 'r') as archive:
+            names = set(archive.namelist())
+            if 'xl/workbook.xml' not in names or 'xl/_rels/workbook.xml.rels' not in names:
+                raise ValueError('Excel 文件缺少工作簿结构，无法读取')
+            workbook = ET.fromstring(archive.read('xl/workbook.xml'))
+            sheet = workbook.find('m:sheets/m:sheet', ns)
+            if sheet is None:
+                raise ValueError('Excel 工作簿中没有工作表')
+            relationship_id = sheet.get('{' + rel_ns + '}id', '')
+            rels = ET.fromstring(archive.read('xl/_rels/workbook.xml.rels'))
+            relationship = next((item for item in rels.findall('{' + pkg_rel_ns + '}Relationship')
+                                 if item.get('Id') == relationship_id), None)
+            if relationship is None:
+                raise ValueError('无法定位 Excel 的第一个工作表')
+            target = relationship.get('Target', '')
+            sheet_path = (target.lstrip('/') if target.startswith('/')
+                          else posixpath.normpath(posixpath.join('xl', target)))
+            if not sheet_path.startswith('xl/') or sheet_path not in names:
+                raise ValueError('Excel 第一个工作表路径无效')
+            shared = []
+            if 'xl/sharedStrings.xml' in names:
+                shared_root = ET.fromstring(archive.read('xl/sharedStrings.xml'))
+                for item in shared_root.findall('m:si', ns):
+                    shared.append(''.join(node.text or '' for node in item.findall('.//m:t', ns)))
+            sheet_root = ET.fromstring(archive.read(sheet_path))
+            rows = []
+            for row in sheet_root.findall('.//m:sheetData/m:row', ns):
+                values = {}
+                for cell in row.findall('m:c', ns):
+                    ref = cell.get('r', '')
+                    match = re.match(r'([A-Z]+)', ref.upper())
+                    if not match:
+                        continue
+                    col = 0
+                    for char in match.group(1):
+                        col = col * 26 + ord(char) - 64
+                    kind = cell.get('t', '')
+                    if kind == 'inlineStr':
+                        value = ''.join(node.text or '' for node in cell.findall('.//m:t', ns))
+                    else:
+                        value_node = cell.find('m:v', ns)
+                        value = value_node.text if value_node is not None and value_node.text else ''
+                        if kind == 's' and value:
+                            try:
+                                value = shared[int(value)]
+                            except (ValueError, IndexError):
+                                raise ValueError('Excel 共享字符串索引无效')
+                    values[col] = str(value).strip()
+                first, second = values.get(1, ''), values.get(2, '')
+                if first or second:
+                    rows.append([first, second])
+    except zipfile.BadZipFile as exc:
+        raise ValueError('文件不是有效的 .xlsx 工作簿') from exc
+    except ET.ParseError as exc:
+        raise ValueError('Excel 工作簿 XML 结构损坏') from exc
+    if not rows:
+        raise ValueError('Excel 第一个工作表没有可读取的数据')
+    return rows
+
+
 def import_block_names(c, content):
     """Import actual CAXA symbol names and bind them to drawings by exact code.
 
@@ -501,6 +578,15 @@ def import_block_names(c, content):
         resolve_block_names(c)
         add_event(c,'导入图符名称清单','',f'条目数 {len(items)}')
     return len(items)
+
+
+def import_block_names_xlsx(c, path):
+    """Import a two-column Excel mapping through the same strict validator as CSV."""
+    rows = read_block_names_xlsx(path)
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+    writer.writerows(rows)
+    return import_block_names(c, stream.getvalue())
 
 
 def resolve_block_names(c):
