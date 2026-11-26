@@ -1,6 +1,6 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.42.14",
+  "version": "0.42.15",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
@@ -20,8 +20,8 @@
     },
     {
       "path": "app/bridge.py",
-      "size": 8512,
-      "sha256": "1ab5a1ac194bb59839b1a72318bc3bfb8d37e795e1bb74bae6aa0c56597ac0e7"
+      "size": 8557,
+      "sha256": "daa50c20d971ef691474365ffd1884adf206c2ea363327c597ebf16d755ea48d"
     },
     {
       "path": "app/core.py",
@@ -35,8 +35,8 @@
     },
     {
       "path": "app/floating_panel.py",
-      "size": 62175,
-      "sha256": "53896cc67beb868a468547af064b1b43bb1806c7bfbb629f3e9a703c572ecbb0"
+      "size": 64171,
+      "sha256": "17e40a88e6229db094436e73101cd74ad7bbdd01a1a9fa6501d6c15e49e3ed6f"
     },
     {
       "path": "app/guided.py",
@@ -72,7 +72,7 @@
     {
       "path": "app/VERSION.txt",
       "size": 8,
-      "sha256": "a611163dcc53023739bee86642bad4d6436e6c5a352cfffdd3035a2155e14956"
+      "sha256": "586cf4c110dc828c5f715bee175472a4594607cde4aa069e7db707944b1318f2"
     },
     {
       "path": "app/workflow_v08.py",
@@ -81,8 +81,8 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 87159,
-      "sha256": "79269c96dfb5daf7c05cc31bbd58edeefc3fc7c22c005f4623b0c5300c9429cf",
+      "size": 90431,
+      "sha256": "cf062bf10ab00cf926a5c757e0f6f86daa3d2c273089fab97ccde43f042adadf",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E5%8D%8A%E8%87%AA%E5%8A%A8%E8%BE%85%E5%8A%A9.ahk"
     },
     {
@@ -117,8 +117,8 @@
     },
     {
       "path": "app/快捷键工具/说明_快捷操作.md",
-      "size": 7359,
-      "sha256": "1ed67ef338fdf87e3f1da6d7b309e6ed797ea2c9bb60214fb18f90c1bf8c3111",
+      "size": 8430,
+      "sha256": "238f55f5b0b6a2405ad4d464c47db0ed728fd5673d76916cdd589c235ac2290b",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/%E8%AF%B4%E6%98%8E_%E5%BF%AB%E6%8D%B7%E6%93%8D%E4%BD%9C.md"
     },
     {
