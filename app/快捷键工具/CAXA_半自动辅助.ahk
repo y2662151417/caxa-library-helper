@@ -464,12 +464,22 @@ PanelActionPoll() {
             fillSymbolNameField(true, signature)
         } else if action = "open_pick_filter" {
             runPublishedNativeCommand(signature, "objectset", "打开拾取过滤设置")
+        } else if action = "select_filtered_objects" {
+            selectFilteredObjects(signature)
         } else if action = "open_properties" {
             runPublishedNativeCommand(signature, "properties", "打开属性面板")
         } else if action = "apply_color_layer" {
             applyColorLayer(signature, targetLayer)
+        } else if action = "calibrate_layer_combo" {
+            beginTimedCalibration(signature, "layerCombo", "常用工具栏图层下拉框")
+        } else if action = "calibrate_color_combo" {
+            beginTimedCalibration(signature, "colorCombo", "常用工具栏颜色下拉框")
+        } else if action = "calibrate_linetype_combo" {
+            beginTimedCalibration(signature, "linetypeCombo", "常用工具栏线型下拉框")
+        } else if action = "calibrate_lineweight_combo" {
+            beginTimedCalibration(signature, "lineweightCombo", "常用工具栏线宽下拉框")
         } else if action = "calibrate_layer_field" {
-            beginTimedCalibration(signature, "layerField", "属性面板图层下拉框")
+            beginTimedCalibration(signature, "layerField", "旧版属性面板图层字段")
         } else if action = "restore_pick_filter" {
             runPublishedNativeCommand(signature, "objectset", "恢复拾取过滤设置")
         } else if action = "start_view_guide" {
@@ -1029,7 +1039,8 @@ beginTimedCalibration(signature, slot, label) {
         autoTip("CAD 辅助已暂停或尚未连接 CAXA；未开始校准")
         return false
     }
-    allowed := Map("define", true, "attrEdit", true, "attrFill", true, "symbolNameField", true, "galleryFinish", true, "layerField", true)
+    allowed := Map("define", true, "attrEdit", true, "attrFill", true, "symbolNameField", true, "galleryFinish", true, "layerField", true,
+        "layerCombo", true, "colorCombo", true, "linetypeCombo", true, "lineweightCombo", true)
     if !allowed.Has(slot) || calibrationBusy {
         autoTip("当前校准类型无效，或已有校准正在进行")
         return false
@@ -1045,7 +1056,7 @@ beginTimedCalibration(signature, slot, label) {
         return false
     }
     pid := WinGetPID("ahk_id " mainHwnd)
-    if slot = "define" || slot = "layerField"
+    if slot = "define" || slot = "layerField" || isPropertyComboSlot(slot)
         targetHwnd := mainHwnd
     else if slot = "symbolNameField" || slot = "galleryFinish" || slot = "attrEdit"
         targetHwnd := findUniqueCalibrationDialog(pid, mainHwnd, "图符入库")
@@ -1103,19 +1114,19 @@ FinishTimedCalibration(targetHwnd, mainHwnd, signature, slot, label, title, clas
             autoTip("鼠标未停在目标 CAXA 窗口上；未保存校准")
             return false
         }
-        if (slot = "symbolNameField" || slot = "layerField") && ctrlClass = "" {
-            autoTip(slot = "layerField" ? "未识别到属性面板图层控件；不能安全自动选择图层" : "未识别到图符名称输入控件；请使用复制后手动粘贴")
+        if (slot = "symbolNameField" || isPropertyComboSlot(slot) || slot = "layerField") && ctrlClass = "" {
+            autoTip(slot = "symbolNameField" ? "未识别到图符名称输入控件；请使用复制后手动粘贴" : "未识别到属性下拉控件；不能安全自动修改属性")
             return false
         }
-        if slot = "layerField" {
-            layerControlHwnd := ControlGetHwnd(ctrlClass, "ahk_id " targetHwnd)
-            if !layerControlHwnd {
-                autoTip("无法读取鼠标下方的图层控件；未保存校准")
+        if isPropertyComboSlot(slot) || slot = "layerField" {
+            fieldControlHwnd := ControlGetHwnd(ctrlClass, "ahk_id " targetHwnd)
+            if !fieldControlHwnd {
+                autoTip("无法读取鼠标下方的属性下拉控件；未保存校准")
                 return false
             }
-            layerControlClass := WinGetClass("ahk_id " layerControlHwnd)
-            if layerControlClass != "ComboBox" && layerControlClass != "ComboBoxEx32" {
-                autoTip("图层字段不是受支持的标准下拉控件；本轮不启用自动修改，需另做 UI Automation 适配")
+            fieldControlClass := WinGetClass("ahk_id " fieldControlHwnd)
+            if fieldControlClass != "ComboBox" && fieldControlClass != "ComboBoxEx32" {
+                autoTip("该属性不是受支持的标准下拉控件；本轮不启用自动修改，不会猜测坐标点击")
                 return false
             }
         }
@@ -1126,9 +1137,9 @@ FinishTimedCalibration(targetHwnd, mainHwnd, signature, slot, label, title, clas
             autoTip("最终校验未通过；未保存控件标定")
             return false
         }
-        if slot = "layerField" {
+        if isPropertyComboSlot(slot) || slot = "layerField" {
             IniWrite ctrlClass, cfgFile, slot, "control"
-            IniWrite layerControlClass, cfgFile, slot, "control_class"
+            IniWrite fieldControlClass, cfgFile, slot, "control_class"
             IniWrite className, cfgFile, slot, "class"
             IniWrite title, cfgFile, slot, "title"
         } else if slot != "symbolNameField" {
@@ -1149,16 +1160,83 @@ FinishTimedCalibration(targetHwnd, mainHwnd, signature, slot, label, title, clas
     }
 }
 
-; Apply only the configured target layer to the operator-confirmed current selection.
-; The target is chosen through a one-time calibrated standard ComboBox, never by screen coordinates.
-; No save, object selection, or automatic confirmation is performed.
+; A property combo is calibrated by hovering over the exact CAXA toolbar field.
+; Only standard Win32 ComboBox controls are supported; custom controls fail closed.
+isPropertyComboSlot(slot) {
+    return slot = "layerCombo" || slot = "colorCombo" || slot = "linetypeCombo" || slot = "lineweightCombo"
+}
+
+comboHasExactItem(ctrl, hwnd, wanted) {
+    try items := ControlGetItems(ctrl, "ahk_id " hwnd)
+    catch
+        return false
+    for item in items {
+        if StrLower(Trim(item)) = StrLower(wanted)
+            return true
+    }
+    return false
+}
+
+; Select all objects allowed by the current CAXA pick-filter settings.
+; The operator must close the objectset dialog first and inspect the highlight.
+selectFilteredObjects(expectedSignature) {
+    global jobFile, cadExe, isPaused
+    if isPaused {
+        autoTip("CAD 辅助已暂停；未执行过滤对象选择")
+        return false
+    }
+    if !FileExist(jobFile) || cadExe = "" {
+        autoTip("尚未连接 CAXA 或没有已发布的工作副本任务")
+        return false
+    }
+    try {
+        sig := IniRead(jobFile, "active", "job_signature", "")
+        workFile := IniRead(jobFile, "active", "working_file", "")
+        if sig != expectedSignature || workFile = "" {
+            autoTip("当前任务与过滤选择请求不一致；未选择对象")
+            return false
+        }
+        hwnd := findUniqueWorkWindow(workFile)
+        if !hwnd || WinGetPID("ahk_id " hwnd) = 0 || !titleHasExactWorkFile(WinGetTitle("ahk_id " hwnd), workFile) {
+            autoTip("未找到唯一的当前工作副本；未执行全选")
+            return false
+        }
+        if !verifyBeforeAction(sig) || !FileExist(jobFile)
+          || IniRead(jobFile, "active", "job_signature", "") != sig
+          || !WinExist("ahk_id " hwnd) || !jobWindowMatches(hwnd, workFile) {
+            autoTip("全选前安全核验未通过；未选择对象")
+            return false
+        }
+        WinActivate("ahk_id " hwnd)
+        if !WinWaitActive("ahk_id " hwnd, , 2) || WinGetID("A") != hwnd {
+            autoTip("请先关闭拾取过滤对话框，回到当前工作副本绘图区；未执行全选")
+            return false
+        }
+        if !cadOk(true) || !verifyBeforeAction(sig)
+          || WinGetID("A") != hwnd || !jobWindowMatches(hwnd, workFile) {
+            autoTip("全选前最终核验未通过；未选择对象")
+            return false
+        }
+        Send "^a"
+        autoTip("已按当前拾取过滤条件执行 Ctrl+A。请检查高亮范围；若包含标题栏、图框、尺寸或其他对象，立即按 Esc 取消")
+        return true
+    } catch as e {
+        autoTip("过滤对象选择失败：" e.Message)
+        return false
+    }
+}
+
+; Set all four object properties on the operator-confirmed selection.
+; ByLayer is applied before the target layer so explicit overrides are cleared
+; and the final appearance comes from the preconfigured target layer.
+; No drawing save or selection is performed here.
 applyColorLayer(expectedSignature, targetLayer) {
     global jobFile, cadExe, cfgFile, isPaused
     if isPaused {
-        autoTip("CAD 辅助已暂停；未修改选集图层")
+        autoTip("CAD 辅助已暂停；未修改选集属性")
         return false
     }
-    if targetLayer = "" || StrLen(targetLayer) > 64 || RegExMatch(targetLayer, "[\r\n\t=;#\[\]|]") {
+    if targetLayer = "" || StrLen(targetLayer) > 64 || RegExMatch(targetLayer, "[\\r\\n\\t=;#\\[\\]|]") {
         autoTip("目标图层名称无效；已拒绝修改")
         return false
     }
@@ -1169,70 +1247,82 @@ applyColorLayer(expectedSignature, targetLayer) {
     try {
         sig := IniRead(jobFile, "active", "job_signature", "")
         workFile := IniRead(jobFile, "active", "working_file", "")
-        if !RegExMatch(sig, "^[0-9a-f]{64}$") || sig != expectedSignature || workFile = "" {
-            autoTip("当前图纸任务与面板请求不一致；未修改图层")
+        if sig != expectedSignature || workFile = "" {
+            autoTip("当前图纸任务与面板请求不一致；未修改属性")
             return false
         }
-        hwnd := activatePublishedWorkWindow(workFile)
-        if !hwnd || !cadOk(true) || WinGetID("A") != hwnd || !jobWindowMatches(hwnd, workFile) {
-            autoTip("未能唯一定位当前工作副本；未修改图层")
+        hwnd := findUniqueWorkWindow(workFile)
+        if !hwnd || !cadOk(true) || !jobWindowMatches(hwnd, workFile) {
+            autoTip("未能唯一定位当前工作副本；未修改属性")
             return false
         }
-        if !verifyBeforeAction(sig)
-            return false
-        if !cadOk(true) || WinGetID("A") != hwnd || !jobWindowMatches(hwnd, workFile)
-          || !FileExist(jobFile) || IniRead(jobFile, "active", "job_signature", "") != sig {
-            autoTip("图纸或活动窗口发生变化；已取消归层")
-            return false
-        }
-        ctrl := IniRead(cfgFile, "layerField", "control", "")
-        expectedControlClass := IniRead(cfgFile, "layerField", "control_class", "")
-        if ctrl = "" || (expectedControlClass != "ComboBox" && expectedControlClass != "ComboBoxEx32") {
-            autoTip("尚未校准属性面板图层下拉框；请在设置中完成一次校准")
+        if !verifyBeforeAction(sig) || !FileExist(jobFile)
+          || IniRead(jobFile, "active", "job_signature", "") != sig
+          || !WinExist("ahk_id " hwnd) || !jobWindowMatches(hwnd, workFile) {
+            autoTip("归层前安全核验未通过；未修改属性")
             return false
         }
+        ; The floating panel is the explicit request source. Activate only the
+        ; exact work-copy window; no other CAD document may receive the change.
         WinActivate("ahk_id " hwnd)
         if !WinWaitActive("ahk_id " hwnd, , 2) || WinGetID("A") != hwnd {
-            autoTip("无法重新激活当前工作副本；未修改图层")
+            autoTip("请关闭 CAXA 对话框并回到已选中对象的绘图区；未修改属性")
             return false
         }
-        ctrlHwnd := 0
-        try ctrlHwnd := ControlGetHwnd(ctrl, "ahk_id " hwnd)
-        visible := ctrlHwnd ? DllCall("IsWindowVisible", "ptr", ctrlHwnd, "int") : false
-        if !visible {
-            ; Open the native property palette only when the calibrated field is hidden.
-            SendText "properties"
-            Send "{Enter}"
-            Loop 12 {
-                Sleep 100
-                try ctrlHwnd := ControlGetHwnd(ctrl, "ahk_id " hwnd)
-                visible := ctrlHwnd ? DllCall("IsWindowVisible", "ptr", ctrlHwnd, "int") : false
-                if visible
-                    break
+        fieldPlan := [
+            Map("slot","colorCombo","value","ByLayer","label","颜色"),
+            Map("slot","linetypeCombo","value","ByLayer","label","线型"),
+            Map("slot","lineweightCombo","value","ByLayer","label","线宽"),
+            Map("slot","layerCombo","value",targetLayer,"label","图层")
+        ]
+        ; Preflight every control and every target item before changing anything.
+        for field in fieldPlan {
+            slot := field["slot"]
+            ctrl := IniRead(cfgFile, slot, "control", "")
+            expectedClass := IniRead(cfgFile, slot, "control_class", "")
+            if ctrl = "" || (expectedClass != "ComboBox" && expectedClass != "ComboBoxEx32") {
+                autoTip("尚未完成【" field["label"] "】下拉框校准；未修改选集属性")
+                return false
             }
-        }
-        if !visible || !ctrlHwnd || WinGetClass("ahk_id " ctrlHwnd) != expectedControlClass {
-            autoTip("未找到已校准的图层下拉框；未执行归层，请手动处理")
-            return false
+            ctrlHwnd := 0
+            try ctrlHwnd := ControlGetHwnd(ctrl, "ahk_id " hwnd)
+            if !ctrlHwnd || WinGetClass("ahk_id " ctrlHwnd) != expectedClass
+              || !DllCall("IsWindowVisible", "ptr", ctrlHwnd, "int") {
+                autoTip("【" field["label"] "】下拉框与校准状态不符或不可见；未修改选集属性")
+                return false
+            }
+            if !comboHasExactItem(ctrl, hwnd, field["value"]) {
+                autoTip("【" field["label"] "】下拉框中找不到目标值【" field["value"] "】；未修改选集属性")
+                return false
+            }
         }
         if !verifyBeforeAction(sig) || !cadOk(true) || WinGetID("A") != hwnd
           || !jobWindowMatches(hwnd, workFile) {
-            autoTip("最终安全核验未通过；未修改图层")
+            autoTip("属性修改前最终安全核验未通过；未修改选集属性")
             return false
         }
-        try {
-            ControlChooseString targetLayer, ctrl, "ahk_id " hwnd
-        } catch as e {
-            autoTip("目标图层选择失败：" e.Message)
-            return false
+        for field in fieldPlan {
+            slot := field["slot"]
+            ctrl := IniRead(cfgFile, slot, "control", "")
+            value := field["value"]
+            try {
+                ControlChooseString value, ctrl, "ahk_id " hwnd
+                Sleep 120
+                observed := Trim(ControlGetText(ctrl, "ahk_id " hwnd))
+            } catch as e {
+                autoTip("设置【" field["label"] "】失败：" e.Message "；请检查当前选集，必要时撤销")
+                return false
+            }
+            if StrLower(observed) != StrLower(value) {
+                autoTip("【" field["label"] "】读回不一致：预期【" value "】，实际【" observed "】；可能已部分修改，请检查并按需撤销")
+                return false
+            }
+            if WinGetID("A") != hwnd || !jobWindowMatches(hwnd, workFile) {
+                autoTip("属性修改期间活动窗口发生变化；请检查是否已部分修改")
+                return false
+            }
         }
-        Sleep 150
-        observed := Trim(ControlGetText(ctrl, "ahk_id " hwnd))
-        if observed != targetLayer {
-            autoTip("图层字段读回不一致（预期：" targetLayer "；实际：" observed "）；请检查 CAXA 选集")
-            return false
-        }
-        autoTip("已将当前选集的图层字段设为【" targetLayer "】并读回核对；请检查线型/颜色，未自动保存")
+        autoTip("已将选集颜色、线型、线宽设为 ByLayer，并归入【" targetLayer "】；四项均已读回核对。请检查图面，未自动保存")
         return true
     } catch as e {
         autoTip("颜色归层未完成：" e.Message)
@@ -1356,8 +1446,9 @@ statusInfo(*) {
         "进程：" . (cadExe != "" ? cadExe : "未绑定")
         . "`n状态：" . (isPaused ? "暂停" : "启用")
     )
-    for slot, title in Map("define","开始定义", "attrEdit","属性编辑", "attrFill","填入当前标题栏", "galleryFinish","完成入库", "layerField","图层字段") {
-        value := slot = "layerField" ? IniRead(cfgFile, slot, "control", "") : IniRead(cfgFile, slot, "x", "")
+    for slot, title in Map("define","开始定义", "attrEdit","属性编辑", "attrFill","填入当前标题栏", "galleryFinish","完成入库",
+        "layerCombo","图层下拉框", "colorCombo","颜色下拉框", "linetypeCombo","线型下拉框", "lineweightCombo","线宽下拉框") {
+        value := IniRead(cfgFile, slot, "control", "")
         description .= "`n" title "：" (value != "" ? "已标定" : "未标定")
     }
     description .= "`n删除重线：悬浮面板按钮（原生命令；人工选取/确认）"
