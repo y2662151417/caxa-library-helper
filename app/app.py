@@ -493,7 +493,7 @@ class App:
         self.status_var.set(source_label+'已复制；请核对 CAXA 原生属性和图库类别。')
 
     def update_plan(self):
-        if not self.require(): return
+        if not self.require(): return False
         try:
             chosen=core.validate_view_template(self.last_view_template)
             n=core.plan_views(self.c,self.path,chosen)
@@ -501,8 +501,10 @@ class App:
             self.load_detail(self.path)
             self.refresh()
             self.status_var.set('已按当前视图模板建立 '+str(n)+' 项任务；CAD 图元仍由你在 CAXA 中选择。')
+            return True
         except Exception as e:
             messagebox.showerror('无法建立视图计划',str(e))
+            return False
 
     def set_version(self,state):
         if not self.require(): return
