@@ -1,6 +1,6 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.42.5",
+  "version": "0.42.6",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
@@ -30,8 +30,8 @@
     },
     {
       "path": "app/floating_panel.py",
-      "size": 57097,
-      "sha256": "dcefb1526b3898de2a641fa28b51ac64516d14d80f07356db2f0abe7f45ec59c"
+      "size": 57267,
+      "sha256": "d0bc6e0eda865eb2318ac667d050d9b470e3fea783e65c1813e364325cd75f58"
     },
     {
       "path": "app/guided.py",
@@ -56,8 +56,8 @@
     },
     {
       "path": "app/router_v11.py",
-      "size": 2199,
-      "sha256": "7449526ebc6444eb2f05feb33baffbeef8b987a0555c6c1974dfbbacf4332a13"
+      "size": 2515,
+      "sha256": "6512b84bbce813e0a2d02385516fca033bc839738411a36ec78c4413e6d6c6b5"
     },
     {
       "path": "app/verify_action.py",
@@ -71,8 +71,8 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 66061,
-      "sha256": "78334aae7956d6d75b25f8924b0b156323502002aefae3cf5597795980b63988",
+      "size": 66629,
+      "sha256": "9af80e3a1274fa5a064fe913c83d768600931b484bf49fc1f5ff71634337477b",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E5%8D%8A%E8%87%AA%E5%8A%A8%E8%BE%85%E5%8A%A9.ahk"
     },
     {
