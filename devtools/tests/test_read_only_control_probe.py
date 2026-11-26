@@ -80,6 +80,15 @@ class ReadOnlyControlProbeTests(unittest.TestCase):
         self.assertIn('"1", "图层设置（尺寸线层）"', source)
         self.assertIn('"5", "图符入库"', source)
 
+    def test_standalone_probe_uses_guarded_single_key(self):
+        source = (ROOT / "app" / "快捷键工具" / "CAXA_控件探针_只读.ahk").read_text(encoding="utf-8")
+        active_hotkeys = [line.strip() for line in source.splitlines()
+                          if "::" in line and not line.lstrip().startswith(";")]
+        self.assertEqual(active_hotkeys, ["F2::{"])
+        self.assertIn("#HotIf isConfiguredCaxaForeground()", source)
+        self.assertIn('WinGetProcessName("A")', source)
+        self.assertNotRegex(source, r"(?m)^\\s*\\^!.*::")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
