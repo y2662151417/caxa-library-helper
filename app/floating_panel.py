@@ -810,7 +810,7 @@ class Panel:
             if 'check' not in conf or conf['check'].get('signature','')!=job.get('job_signature',''):
                 self.cad_drawing_status.set('CAXA：未核对')
                 return
-            stamp=float(conf['check'].get('checked_at','0'))
+            stamp=status_path.stat().st_mtime
             if time.time()-stamp>45:
                 self.cad_drawing_status.set('CAXA：未核对')
                 return
