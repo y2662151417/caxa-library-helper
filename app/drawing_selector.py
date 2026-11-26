@@ -50,7 +50,7 @@ class DrawingSelector:
         ).pack(anchor="w", pady=(0, 3))
         ttk.Label(
             outer,
-            text="选中后点击“打开工作副本”。助手会复制源图再打开，不会直接修改原图。",
+            text="选中后点击下方“打开图纸”。系统会自动创建工作副本再打开，原始 EXB 不会被直接修改。",
             foreground="#555",
         ).pack(anchor="w", pady=(0, 10))
 
@@ -108,7 +108,7 @@ class DrawingSelector:
         actions.pack(fill="x")
         self.open_button = ttk.Button(
             actions,
-            text="打开工作副本",
+            text="打开图纸",
             command=self.open_selected,
             state="disabled",
         )
@@ -217,14 +217,14 @@ class DrawingSelector:
             row = core.get_drawing(self.app.c, path)
             if row:
                 self.selected_text.set(
-                    f"已选择：{row['code']}｜{row['name']}。下一步：点击“打开工作副本”。"
+                    f"已选择：{row['code']}｜{row['name']}。下一步：点击下方“打开图纸”。"
                 )
             available = Path(path).is_file()
             self.open_button.configure(state="normal" if available else "disabled")
             if not available:
                 self.selected_text.set("源文件不存在，无法打开；请刷新目录或检查文件。")
             else:
-                self.app.status_var.set("已选择图纸。点击“打开工作副本”继续。")
+                self.app.status_var.set("已选择图纸。点击“打开图纸”继续。")
         except Exception as exc:
             self.open_button.configure(state="disabled")
             self.selected_text.set("读取图纸信息失败："+str(exc))
