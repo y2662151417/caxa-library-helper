@@ -57,11 +57,8 @@ def safe_color_plan(profile:dict, *, selection_confirmed:bool, include_titlebloc
         raise WorkflowError('禁止把标题栏/图框包含到批量颜色更改范围')
     if not selection_confirmed:
         raise WorkflowError('必须先由操作员框定机械视图范围，不允许全图默认执行')
-    rules = profile.get('color_rules',[])
-    if not rules: raise WorkflowError('尚未配置颜色规则')
-    missing=[r['source_color'] for r in rules if not r.get('target_layer')]
-    if missing:
-        raise WorkflowError('这些颜色尚未配置目标图层：'+'、'.join(missing))
+    rules = [r for r in profile.get('color_rules',[]) if r.get('target_layer')]
+    if not rules: raise WorkflowError('没有已配置目标图层的颜色规则')
     return [{
         'source_color': r['source_color'],
         'target_layer':r['target_layer'],
@@ -90,14 +87,14 @@ def validate_color_rule(profile:dict, source_color:str)->dict:
 def color_rule_instruction(rule:dict)->str:
     """Operator-facing sequence for the calibrated target-layer workflow."""
     return (
-        f"源颜色：{rule['source_color']}\\n"
-        'CAXA 命令：objectset（拾取过滤设置）\\n'
-        f"目标图层：{rule['target_layer']}\\n"
-        '目标颜色、线型和线宽：使用当前 CAXA 图纸中该图层预先配置的特性\\n\\n'
-        '1. 在 CAXA 拾取过滤中选择上述源颜色。\\n'
-        '2. 只框选当前机械视图区域，排除图框、标题栏、尺寸和其他颜色组。\\n'
-        '3. 点击助手的“应用目标图层”；助手通过已校准的图层下拉框写入目标图层名称并读回核对。\\n'
-        '4. 检查图面颜色和线型是否符合目标图层特性，再恢复拾取过滤。\\n\\n'
+        f"源颜色：{rule['source_color']}\n"
+        'CAXA 命令：objectset（拾取过滤设置）\n'
+        f"目标图层：{rule['target_layer']}\n"
+        '目标颜色、线型和线宽：使用当前 CAXA 图纸中该图层预先配置的特性\n\n'
+        '1. 在 CAXA 拾取过滤中选择上述源颜色。\n'
+        '2. 只框选当前机械视图区域，排除图框、标题栏、尺寸和其他颜色组。\n'
+        '3. 点击助手的“应用目标图层”；助手通过已校准的图层下拉框写入目标图层名称并读回核对。\n'
+        '4. 检查图面颜色和线型是否符合目标图层特性，再恢复拾取过滤。\n\n'
         '注意：对象颜色或线型若被显式指定而不是 ByLayer，仅改变图层归属未必会继承图层特性；首次必须用测试图验证。助手不会自动保存图纸。'
     )
 
