@@ -455,6 +455,8 @@ PanelActionPoll() {
         }
         if action = "bind_cad" {
             bindCadForPublishedJob(signature)
+        } else if action = "probe_cad_controls" {
+            probeCaxaControls(signature)
         } else if action = "duplicate_line_cleanup" {
             startDuplicateLineCleanup(signature)
         } else if action = "fill_symbol_name" {
@@ -638,6 +640,147 @@ startSymbolDefinition(expectedSignature) {
     autoTip("已启动 CAXA Symdef（" countText "项）。在 CAXA 中依次框选每组视图并指定各自基点；CAXA 会自动衔接下一组，不必返回助手点击“下一视图”。最后一组完成后自动打开图符入库窗口，已校准的正式名称框会自动填名")
     return true
 }
+
+; Read-only inspection of the exact published CAXA window/control tree.
+; This function never activates windows, sends CAD keys, clicks controls, or reads UI text.
+probeCaxaControls(expectedSignature) {
+    global jobFile, cadExe, dataDir, isPaused
+    if isPaused {
+        autoTip("CAD 辅助已暂停；只读诊断未启动")
+        return false
+    }
+    if cadExe = "" {
+        autoTip("尚未连接 CAXA；请先连接当前工作副本")
+        return false
+    }
+    if !FileExist(jobFile) || IniRead(jobFile, "active", "job_signature", "") != expectedSignature {
+        autoTip("当前任务已变化；拒绝执行只读诊断")
+        return false
+    }
+    workFile := IniRead(jobFile, "active", "working_file", "")
+    if workFile = "" {
+        autoTip("当前任务缺少工作副本路径")
+        return false
+    }
+    mainHwnd := findUniqueWorkWindow(workFile)
+    if !mainHwnd {
+        autoTip("未找到唯一的当前工作副本窗口；请确认 CAXA 已打开该工作副本")
+        return false
+    }
+    pid := WinGetPID("ahk_id " mainHwnd)
+    process := WinGetProcessName("ahk_id " mainHwnd)
+    mainClass := WinGetClass("ahk_id " mainHwnd)
+    if StrLower(process) != StrLower(cadExe) {
+        autoTip("工作副本窗口进程与已绑定 CAXA 不一致；诊断已停止")
+        return false
+    }
+
+    stages := Map(
+        "0", "绘图主窗口",
+        "1", "图层设置（尺寸线层）",
+        "2", "拾取过滤设置",
+        "3", "左侧特性栏",
+        "4", "定义图符",
+        "5", "图符入库"
+    )
+    prompt := "请选择当前已打开的 CAXA 界面阶段（只输入数字）："
+    prompt .= Chr(10) "0 绘图主窗口"
+    prompt .= Chr(10) "1 图层设置（尺寸线层）"
+    prompt .= Chr(10) "2 拾取过滤设置"
+    prompt .= Chr(10) "3 左侧特性栏"
+    prompt .= Chr(10) "4 定义图符"
+    prompt .= Chr(10) "5 图符入库"
+    answer := InputBox(prompt, "只读控件诊断", "w430 h265", "0")
+    if answer.Result != "OK"
+        return false
+    stage := Trim(answer.Value)
+    if !stages.Has(stage) {
+        MsgBox("阶段编号只能为 0 至 5；本次没有收集窗口信息。", "只读诊断取消", "Icon!")
+        return false
+    }
+
+    ; Layer/filter/gallery are separate dialogs. The docked properties pane,
+    ; symbol-definition prompts and main drawing are inspected on the main HWND.
+    targetHwnd := mainHwnd
+    if stage = "1" || stage = "2" || stage = "5"
+        targetHwnd := findUniqueCalibrationDialog(pid, mainHwnd)
+    if !targetHwnd {
+        autoTip("未找到唯一的 CAXA 对话框；请只保留一个目标弹窗后重试")
+        return false
+    }
+    if !WinExist("ahk_id " targetHwnd)
+      || WinGetPID("ahk_id " targetHwnd) != pid {
+        autoTip("目标窗口身份发生变化；诊断已停止")
+        return false
+    }
+    targetClass := WinGetClass("ahk_id " targetHwnd)
+    if !verifyBeforeAction(expectedSignature)
+      || !FileExist(jobFile)
+      || IniRead(jobFile, "active", "job_signature", "") != expectedSignature
+      || !WinExist("ahk_id " mainHwnd)
+      || WinGetPID("ahk_id " mainHwnd) != pid
+      || WinGetClass("ahk_id " mainHwnd) != mainClass
+      || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
+        autoTip("只读诊断前的任务/窗口复核未通过；未读取控件")
+        return false
+    }
+
+    try {
+        items := WinGetControls("ahk_id " targetHwnd)
+        nl := Chr(13) Chr(10)
+        result := "CAXA read-only control diagnostics - no user content" nl
+        result .= "Stage: " stage " - " stages[stage] nl
+        result .= "Process: " process nl
+        result .= "MainWindowClass: " mainClass nl
+        result .= "TargetWindowClass: " targetClass nl
+        result .= "Controls discovered: " items.Length nl
+        result .= "Positions: parent-window client coordinates when available" nl
+        result .= "No titles, control text, drawing text, parameters or screenshots were captured." nl
+        result .= "Custom-drawn and UIA-only controls may be absent." nl
+        limit := Min(items.Length, 300)
+        for index, ctrl in items {
+            if index > limit
+                break
+            result .= "ClassNN: " ctrl
+            try {
+                ControlGetPos &cx, &cy, &cw, &ch, ctrl, "ahk_id " targetHwnd
+                result .= " | x=" cx " y=" cy " w=" cw " h=" ch
+            } catch {
+                result .= " | geometry unavailable"
+            }
+            result .= nl
+        }
+        if items.Length > limit
+            result .= "Truncated: only first " limit " controls were recorded." nl
+
+        if !verifyBeforeAction(expectedSignature)
+          || !FileExist(jobFile)
+          || IniRead(jobFile, "active", "job_signature", "") != expectedSignature
+          || !WinExist("ahk_id " targetHwnd)
+          || WinGetPID("ahk_id " targetHwnd) != pid
+          || WinGetClass("ahk_id " targetHwnd) != targetClass
+          || !WinExist("ahk_id " mainHwnd)
+          || WinGetPID("ahk_id " mainHwnd) != pid
+          || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
+            autoTip("诊断期间任务或窗口发生变化；报告未保存")
+            return false
+        }
+
+        outputDir := dataDir "\diagnostics"
+        DirCreate outputDir
+        file := outputDir "\controls_stage" stage "_" FormatTime(A_Now, "yyyyMMdd_HHmmss")
+            . "_" A_TickCount ".txt"
+        FileAppend result, file, "UTF-8"
+        MsgBox("已保存阶段【" stages[stage] "】的只读控件报告（最多300项）。"
+            . Chr(10) "不包含图纸文本、控件文本或截图。" Chr(10) Chr(10) file,
+            "只读诊断完成", "Iconi")
+        return true
+    } catch as e {
+        MsgBox("诊断停止，未修改任何 CAD 内容：" e.Message, "只读诊断失败", "Icon!")
+        return false
+    }
+}
+
 
 ; When Symdef opens the gallery dialog, fill the exact mapped name once if the
 ; name field was calibrated. No category selection, attribute submission or final click occurs here.
