@@ -81,14 +81,14 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 90431,
-      "sha256": "cf062bf10ab00cf926a5c757e0f6f86daa3d2c273089fab97ccde43f042adadf",
+      "size": 90534,
+      "sha256": "bad4eb19c49a2ce9ac73cdeac296876906df3790f8d81ad3569d18cd4c69cc55",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E5%8D%8A%E8%87%AA%E5%8A%A8%E8%BE%85%E5%8A%A9.ahk"
     },
     {
       "path": "app/快捷键工具/CAXA_控件探针_只读.ahk",
-      "size": 4743,
-      "sha256": "7b3585e485a1f8e5b9b7409145fc28eba9b5cb1a3b30e020a27cca8e2a4ad545",
+      "size": 4776,
+      "sha256": "0e5723aa92c94ce670e665013d728a7f3b4d610011d7335f2bc955745283d452",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E6%8E%A7%E4%BB%B6%E6%8E%A2%E9%92%88_%E5%8F%AA%E8%AF%BB.ahk"
     },
     {
