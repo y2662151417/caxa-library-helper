@@ -44,5 +44,9 @@ jobs:
           $exe = Join-Path $extract "AutoHotkey64.exe"
           if (!(Test-Path -LiteralPath $exe)) { throw "Verified AutoHotkey64.exe not found in official archive" }
           $script = Join-Path $env:GITHUB_WORKSPACE "app\快捷键工具\CAXA_半自动辅助.ahk"
-          & $exe $script "--syntax-check"
-          if ($LASTEXITCODE -ne 0) { throw "AutoHotkey v2 parse check failed with exit code $LASTEXITCODE" }
+          $stdout = Join-Path $env:TEMP "ahk-parse.stdout.txt"
+          $stderr = Join-Path $env:TEMP "ahk-parse.stderr.txt"
+          $process = Start-Process -FilePath $exe -ArgumentList @($script, "--syntax-check") -Wait -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          if (Test-Path -LiteralPath $stdout) { Get-Content -LiteralPath $stdout }
+          if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr }
+          if ($process.ExitCode -ne 0) { throw "AutoHotkey v2 parse check failed with exit code $($process.ExitCode)" }
