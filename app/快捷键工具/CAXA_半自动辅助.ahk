@@ -73,7 +73,7 @@ cadOk(quiet := false) {
     global cadExe, isPaused
     if isPaused {
         if !quiet
-            autoTip("已暂停：按 Pause 可恢复")
+            autoTip("助手控制器当前处于暂停状态；请重新启动 CAXA 制作助手")
         return false
     }
     if cadExe = "" {
@@ -142,7 +142,7 @@ calibrate(slot, label) {
         ; On any mismatch, refuse to click (fail closed).
         if slot != "define"
             IniWrite title, cfgFile, slot, "title"
-        autoTip(label " 已标定；可按对应快捷键使用")
+        autoTip(label " 已标定；可在悬浮面板对应功能中使用")
     } catch as e {
         MsgBox "标定失败：" e.Message
     }
@@ -224,7 +224,7 @@ safeClick(slot, label) {
     ; not just a process name or a matching dialog title.
     if guideSignature = "" || !FileExist(jobFile)
       || IniRead(jobFile,"active","job_signature","") != guideSignature {
-        autoTip("先按 Ctrl+Alt+F6 核对本张EXB与视图计划；快捷操作已拦截")
+        autoTip("请先在悬浮面板启动当前图纸的视图引导，并核对工作副本与视图计划；本次操作已拦截")
         return
     }
     try {
@@ -1477,8 +1477,8 @@ statusInfo(*) {
     MsgBox description, "CAXA 半自动辅助状态"
 }
 
-; Legacy Ctrl+Alt and Ctrl+Alt+Shift shortcuts were replaced by single-key bindings at EOF.
-; Connect and one-time calibration remain available from the compact floating panel.
+; No keyboard shortcuts are registered. All routine operations are launched from
+; the floating panel; connect and one-time calibration remain available there.
 
 ; ---------------- Optional symbol-name field control ----------------------
 ; Uses a calibrated Windows edit control rather than fixed screen coordinates.
@@ -1644,13 +1644,13 @@ fillSymbolNameField(fromPanel := false, expectedSignature := "") {
         }
         autoTip("名称已填入并读回核对；请自行检查属性、类别并确认入库")
     } catch as e {
-        MsgBox "CAXA 控件无法直接填写：" e.Message "`n请使用 Ctrl+Alt+F9 复制名称并手动粘贴。", "仅保留手工操作", "Icon!"
+        MsgBox "CAXA 控件无法直接填写：" e.Message "`n请在悬浮面板“属性与入库”页点击“复制正式块名称”，再手动粘贴。", "仅保留手工操作", "Icon!"
     }
 }
 
 ; ---------------- Panel-driven multi-view guide ----------------------------
-; Panel actions (plus legacy fallback hotkeys) advance an operator-declared
-; checklist only. They never choose shapes, place base points, or infer CAD success.
+; Panel actions advance an operator-declared checklist only. They never choose
+; shapes, place base points, or infer CAD success.
 startGuide(expectedSignature := "") {
     global jobFile, guideItems, guideIndex, guideFilename, guideSignature, guideMainHwnd
     global guideCheckpointFile, guideWorkFile, guidePlan, isPaused
