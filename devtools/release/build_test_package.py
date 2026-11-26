@@ -225,7 +225,7 @@ def main() -> int:
     args = parser.parse_args()
     zip_path, checksum_path = build_test_package(args.repo_root, args.output_dir)
     print(f"Created: {zip_path}")
-    print(f"SHA-256: {checksum_path.read_text(encoding='ascii').strip()}")
+    print(f"SHA-256: {checksum_path.read_text(encoding='utf-8').strip()}")
     print("The ZIP uses a separate TEST user-data directory and has automatic updates disabled.")
     return 0
 
