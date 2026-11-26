@@ -193,16 +193,26 @@ class Panel:
         return page
 
     def open_cleanup_window(self):
-        w=self._dialog('cleanup','清理图纸','350x300')
+        w=self._dialog('cleanup','清理图纸','370x445')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
-        ttk.Label(w,text='重复线清理',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,5))
-        ttk.Label(w,text='启动 CAXA 原生命令后，由你框选需要检查的机械视图范围并确认。不会自动选择或删除图元。',
-                  wraplength=315,foreground='#555').pack(anchor='w',pady=4)
-        ttk.Button(w,text='启动删除重复线',command=self.delete_duplicate_lines).pack(fill='x',pady=8,ipady=6)
+        ttk.Label(w,text='重复线清理',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,3))
+        ttk.Label(w,text='启动 CAXA 原生命令后，由你框选机械视图范围并确认。',
+                  wraplength=335,foreground='#555').pack(anchor='w',pady=2)
+        ttk.Button(w,text='启动删除重复线',command=self.delete_duplicate_lines).pack(fill='x',pady=(3,7),ipady=5)
         ttk.Separator(w).pack(fill='x',pady=5)
-        ttk.Label(w,text='颜色／图层自动处理暂不开放：红、绿、白的公司标准映射尚未完整核实。这里不要求你逐条新增规则，也不会猜测图层或线型。',
-                  wraplength=315,foreground='#8a5a20').pack(anchor='w',pady=5)
+        ttk.Label(w,text='颜色归层',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(2,3))
+        ttk.Label(w,text='先按源颜色过滤并框选当前机械视图对象；助手将把当前选集归入预设目标图层。',
+                  wraplength=335,foreground='#555').pack(anchor='w',pady=2)
+        self.color_combo=ttk.Combobox(w,state='readonly',textvariable=self.color_rule_var)
+        self.color_combo.pack(fill='x',pady=4)
+        self.color_combo.bind('<<ComboboxSelected>>',lambda _e:self.update_color_rule_detail())
+        ttk.Label(w,textvariable=self.color_rule_detail,wraplength=335,foreground='#24527a').pack(anchor='w',pady=3)
+        ttk.Button(w,text='编辑颜色归层规则',command=self.edit_colors).pack(fill='x',pady=3,ipady=3)
+        ttk.Button(w,text='打开拾取过滤（选择源颜色）',command=self.open_color_filter).pack(fill='x',pady=3,ipady=3)
+        ttk.Button(w,text='应用目标图层',command=self.open_color_properties).pack(fill='x',pady=3,ipady=4)
+        ttk.Button(w,text='恢复拾取过滤',command=self.restore_color_filter).pack(fill='x',pady=3,ipady=3)
+        self.update_color_rule_choices()
     def open_views_window(self):
         # This is a batch/type-level preference, not a per-drawing prompt.
         w=self._dialog('views','视图模板设置','370x285')
@@ -489,14 +499,14 @@ class Panel:
             messagebox.showwarning('当前任务不可用',str(e),parent=self.win)
             return None
 
-    def _queue_ahk_action(self,action,confirm_text=None):
+    def _queue_ahk_action(self,action,confirm_text=None,**payload):
         job=self._published_job()
         if not job:return False
         if confirm_text and not messagebox.askyesno('确认 CAXA 操作',confirm_text.format(
                 code=job.get('code',''),work=job.get('working_file','')),parent=self.win,default='no'):
             return False
         try:
-            bridge.request_panel_action(core.storage_dir(),action,job['job_signature'])
+            bridge.request_panel_action(core.storage_dir(),action,job['job_signature'],**payload)
             self.status.set('操作请求已发送；正在等待 CAXA 控制器核验当前图纸。')
             return True
         except Exception as e:
@@ -712,9 +722,10 @@ class Panel:
         w=self._dialog('calibration','首次校准','360x360')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
-        ttk.Label(w,text='定义图符不需要校准。仅在属性控件确实需要自动化时，才做一次对应校准。',
+        ttk.Label(w,text='图层字段只需校准一次：先在 CAXA 选中一条测试线并打开属性面板，点击后 5 秒内将鼠标移到“层”下拉框，不要点击。',
                   wraplength=320,foreground='#555').pack(anchor='w',pady=(0,8))
         for label,action in (
+            ('属性面板图层下拉框','calibrate_layer_field'),
             ('属性编辑按钮','calibrate_attr_edit'),
             ('标题栏属性填入按钮','calibrate_attr_fill'),
             ('图符名称输入框','calibrate_symbol_name'),
@@ -829,7 +840,7 @@ class Panel:
         labels=[]
         for rule in rules:
             source=rule.get('source_color','')
-            label=f"{source} → {rule.get('target_layer') or '未配置图层'} / {rule.get('target_linetype') or '未配置线型'} / 比例 {rule.get('linetype_scale') or '未配置'}"
+            label=f"{source} → {rule.get('target_layer') or '未配置目标图层'}"
             self._color_rule_lookup[label]=source
             labels.append(label)
         if self.color_combo is None:
@@ -856,7 +867,7 @@ class Panel:
             if self._color_flow_source and self._color_flow_source.casefold()!=r['source_color'].casefold():
                 self._color_flow_signature=''
                 self._color_flow_source=''
-            self.color_rule_detail.set(f"目标：{r['target_layer']}｜{r['target_linetype']}｜比例 {r['linetype_scale']}｜颜色 {r.get('target_color') or '保持原色'}")
+            self.color_rule_detail.set(f"目标图层：{r['target_layer']}（使用图层预设特性）")
         except Exception as e:
             self.color_rule_detail.set(str(e))
 
@@ -889,13 +900,15 @@ class Panel:
                 raise workflow_v08.WorkflowError('颜色模板在过滤后发生变化，请重新打开过滤设置。')
         except Exception as e:
             messagebox.showwarning('颜色处理状态不一致',str(e),parent=self.win);return
-        if not messagebox.askyesno('核对当前选集',
-            f"当前规则：{rule['source_color']} → {rule['target_layer']} / {rule['target_linetype']} / 比例 {rule['linetype_scale']}\n\n"
-            '你是否已经在 CAXA 中设置该源颜色过滤，并且只选中了当前工作副本中的机械视图对象？\n'
-            '不要包含图框、标题栏、尺寸或其他颜色组。',parent=self.win,default='no'):
+        if not messagebox.askyesno('应用目标图层',
+            f"即将把当前 CAXA 选集归入【{rule['target_layer']}】。\n\n"
+            f"源颜色规则：{rule['source_color']}\n"
+            '请确认当前选集只包含本张工作副本的机械视图对象，不包含图框、标题栏、尺寸或其他颜色组。\n'
+            '助手不会自动保存图纸；应用后请检查颜色和线型是否继承目标图层特性。',
+            parent=self.win,default='no'):
             return
-        if self._queue_ahk_action('open_properties'):
-            self.status.set('已发送属性面板请求。请在 CAXA 属性面板中手动设置并复核目标图层、线型和比例。')
+        if self._queue_ahk_action('apply_color_layer',target_layer=rule['target_layer']):
+            self.status.set(f"已发送归层请求：{rule['source_color']} → {rule['target_layer']}；控制器正在核验图层字段。")
 
     def restore_color_filter(self):
         if not self.require():return
@@ -938,52 +951,48 @@ class Panel:
             if os.path.exists(tmp):os.unlink(tmp)
 
     def edit_colors(self):
-        # Edit a private copy: closing the dialog without Save must not change
-        # the active profile or future automated actions.
+        # Only source-color -> target-layer mappings are edited here.
+        # The target layer's visual properties remain in the CAXA drawing.
         p=copy.deepcopy(self.current_profile())
-        w=tk.Toplevel(self.win);w.title('编辑颜色与线条特性预设｜'+p['label'])
-        w.geometry('700x420')
-        cols=('src','layer','type','ratio','dest')
-        tree=ttk.Treeview(w,columns=cols,show='headings',height=9)
-        for col,text,width in [('src','原颜色',110),('layer','目标图层',160),('type','线型',130),('ratio','比例',90),('dest','目标颜色（可不改）',140)]:
+        w=tk.Toplevel(self.win);w.title('编辑颜色归层规则｜'+p['label'])
+        w.geometry('520x330')
+        cols=('src','layer')
+        tree=ttk.Treeview(w,columns=cols,show='headings',height=8)
+        for col,text,width in [('src','源颜色',150),('layer','目标图层（预设特性）',300)]:
             tree.heading(col,text=text);tree.column(col,width=width,stretch=True)
         tree.pack(fill='both',expand=True,padx=9,pady=7)
         def refill():
             for i in tree.get_children():tree.delete(i)
             for idx,r in enumerate(p.get('color_rules',[])):
-                tree.insert('','end',iid=str(idx),values=(r['source_color'],r.get('target_layer') or '',r.get('target_linetype') or '',r.get('linetype_scale') or '',r.get('target_color') or ''))
+                tree.insert('','end',iid=str(idx),values=(r['source_color'],r.get('target_layer') or ''))
         refill()
         def edit():
             ix=tree.selection()
             if not ix:return
             idx=int(ix[0]);r=p['color_rules'][idx]
-            fields=[('原颜色','source_color'),('目标图层','target_layer'),('目标线型','target_linetype'),('线型比例','linetype_scale'),('目标颜色（可留空）','target_color')]
-            new=dict(r)
-            for title,key in fields:
-                old=new.get(key)
-                val=simpledialog.askstring('修改颜色预设',title+'：',initialvalue='' if old is None else str(old),parent=w)
-                if val is None:return
-                if key=='linetype_scale':
-                    try: new[key]=float(val) if val.strip() else None
-                    except ValueError:
-                        messagebox.showerror('无效','线型比例必须为正数字',parent=w);return
-                else:new[key]=val.strip() or None
-            test=dict(p); test['color_rules']=list(p['color_rules']);test['color_rules'][idx]=new
+            source=simpledialog.askstring('修改颜色归层规则','源颜色：',initialvalue=r['source_color'],parent=w)
+            if source is None:return
+            layer=simpledialog.askstring('修改颜色归层规则','目标图层名称：',initialvalue=r.get('target_layer') or '',parent=w)
+            if layer is None:return
+            new=dict(r);new['source_color']=source.strip();new['target_layer']=layer.strip() or None
+            test=dict(p);test['color_rules']=list(p['color_rules']);test['color_rules'][idx]=new
             try:profiles.validate(test)
             except Exception as e:
                 messagebox.showerror('规则不合法',str(e),parent=w);return
             p['color_rules'][idx]=new;refill()
         def add():
-            val=simpledialog.askstring('新增颜色','原颜色名称（如 黄色）：',parent=w)
-            if val is None or not val.strip():return
-            p.setdefault('color_rules',[]).append({'source_color':val.strip(),'target_layer':None,'target_linetype':None,'linetype_scale':None})
+            source=simpledialog.askstring('新增颜色归层规则','源颜色名称（如 黄色）：',parent=w)
+            if source is None or not source.strip():return
+            layer=simpledialog.askstring('新增颜色归层规则','目标图层名称：',parent=w)
+            if layer is None:return
+            p.setdefault('color_rules',[]).append({'source_color':source.strip(),'target_layer':layer.strip() or None})
             try:profiles.validate(p)
             except Exception as e:
-                p['color_rules'].pop();messagebox.showerror('不能新增',str(e),parent=w)
+                p['color_rules'].pop();messagebox.showerror('不能新增',str(e),parent=w);return
             refill()
         def remove():
             ix=tree.selection()
-            if ix and messagebox.askyesno('删除规则','确认删除该颜色规则？',parent=w):
+            if ix and messagebox.askyesno('删除规则','确认删除该颜色归层规则？',parent=w):
                 p['color_rules'].pop(int(ix[0]));refill()
         def save():
             prior=self.profiles
@@ -996,9 +1005,9 @@ class Panel:
                 messagebox.showerror('保存失败',str(e),parent=w);return
             self._color_flow_signature='';self._color_flow_source='';self._color_flow_profile_hash=''
             self.update_color_rule_choices()
-            messagebox.showinfo('已保存','规则仅保存在本机，未修改CAD图纸。',parent=w);w.destroy()
+            messagebox.showinfo('已保存','颜色归层规则已保存在本机；未修改 CAXA 图纸中的图层特性。',parent=w);w.destroy()
         bar=ttk.Frame(w);bar.pack(pady=(0,10))
-        for title,cmd in [('编辑选中项',edit),('新增颜色',add),('删除选中项',remove),('保存规则',save)]:
+        for title,cmd in [('编辑选中项',edit),('新增规则',add),('删除选中项',remove),('保存规则',save)]:
             ttk.Button(bar,text=title,command=cmd).pack(side='left',padx=5)
 
     def parse_name(self):
