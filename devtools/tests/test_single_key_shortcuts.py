@@ -30,7 +30,9 @@ class FloatingPanelControlsTests(unittest.TestCase):
 
     def test_shortcuts_are_not_described_as_required_in_settings(self):
         source = PANEL.read_text(encoding="utf-8")
-        settings = source[source.index("def open_settings_window"):source.index("def _enforce_topmost")]
+        start = source.index("def open_settings_window")
+        end = source.index("\\n    def ", start + 1)
+        settings = source[start:end]
         self.assertIn("常用功能已直接放在悬浮面板首页", settings)
         self.assertIn("本版本不拦截 CAXA 原生快捷键", settings)
         self.assertNotIn("F3", settings)
