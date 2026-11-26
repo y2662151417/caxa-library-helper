@@ -18,6 +18,7 @@ PANEL_ACTIONS = {
     "start_view_guide", "next_view", "previous_view", "show_view_guide", "end_view_guide",
     "define_symbol", "edit_symbol_attributes", "fill_titleblock_attributes", "finish_gallery_insert",
     "calibrate_define", "calibrate_attr_edit", "calibrate_attr_fill", "calibrate_symbol_name", "calibrate_gallery_finish",
+    "probe_cad_controls",
 }
 
 def request_panel_action(storage: Path, action: str, signature: str) -> Path:
