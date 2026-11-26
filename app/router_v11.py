@@ -29,7 +29,7 @@ def choose(drawing, *, work_exists: bool, slots: list[dict],
         return Action('parse_name', '核对并生成图库名称', '没有正式块名称匹配；尝试使用参数缓存或读取参数文字。')
     if not slots:
         if configured_views:
-            return Action('prepare_views', '载入本类视图计划', '套用模板并供你核对，不自动选择 CAD 图元。')
+            return Action('prepare_views', '开始制作本张图纸', '按已保存的双视图或三视图模板建立本张任务，并直接启动 CAXA 图符定义。')
         return Action('configure_views', '确认本张需要的视图', '当前模板没有视图清单，请在主工作台设置。')
     if len(slots) not in (4, 6):
         return Action('blocked', '视图计划异常', '当前计划不是双视图4项或三视图6项；请先核对本张图纸的视图模板。')
