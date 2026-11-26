@@ -72,7 +72,7 @@
     {
       "path": "app/VERSION.txt",
       "size": 8,
-      "sha256": "05569d1ba6f0a6e68eee667807f0e63df29641853a64d7d4168d44447d99a586"
+      "sha256": "a611163dcc53023739bee86642bad4d6436e6c5a352cfffdd3035a2155e14956"
     },
     {
       "path": "app/workflow_v08.py",
