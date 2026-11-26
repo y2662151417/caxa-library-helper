@@ -8,7 +8,7 @@ class CompactDrawingSelectorTests(unittest.TestCase):
     def test_selector_exposes_only_the_daily_selection_flow(self):
         source = (ROOT / "app" / "drawing_selector.py").read_text(encoding="utf-8")
         self.assertIn('self.win.title("选择图纸")', source)
-        self.assertIn('text="打开工作副本"', source)
+        self.assertIn('text="打开图纸"', source)
         self.assertIn('text="选择目录"', source)
         self.assertIn('text="搜索图号／图名："', source)
         self.assertIn('self.tree.bind("<Double-1>"', source)
