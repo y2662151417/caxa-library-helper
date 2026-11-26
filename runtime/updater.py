@@ -2,6 +2,7 @@
 
 Only program files under app/ and runtime/ may be replaced or removed. The root
 launcher, update-source config, and user data are never part of an update manifest.
+Git checkouts are protected: source files are synchronized only through Git.
 """
 from __future__ import annotations
 
@@ -25,6 +26,19 @@ USER_AGENT = "CAXA-Library-Helper-Updater/1"
 
 class UpdateError(RuntimeError):
     pass
+
+
+def is_git_checkout(root: Path) -> bool:
+    """Return True when root contains Git metadata (directory or worktree file).
+
+    A false negative could let the updater overwrite tracked source files, so
+    inspection errors fail closed and disable automatic updates.
+    """
+    marker = Path(root) / ".git"
+    try:
+        return marker.exists() or marker.is_symlink()
+    except OSError:
+        return True
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -191,6 +205,11 @@ def _prune_rollback(rollback_root: Path, keep: int = 3) -> None:
 def apply_update(root: Path, config: dict, opener=None, log=None) -> dict:
     """Check and apply one incremental update. No user-data path is writable."""
     root = Path(root).resolve()
+    if is_git_checkout(root):
+        version = _installed_version(root)
+        if log:
+            log("检测到 Git 仓库（根目录存在 .git）：拒绝自动替换受 Git 管理的程序文件。")
+        return {"status": "development_checkout", "updated": [], "version": version}
     manifest_url = str(config.get("manifest_url", "")).strip()
     if not config.get("auto_check", True) or not manifest_url:
         return {"status": "disabled", "updated": [], "version": _installed_version(root)}
@@ -316,6 +335,11 @@ def _installed_version(root: Path) -> str:
 
 def check_from_install(root: Path, log=None, opener=None) -> dict:
     root = Path(root).resolve()
+    if is_git_checkout(root):
+        version = _installed_version(root)
+        if log:
+            log("检测到 Git 开发仓库（.git）：已跳过更新源读取和自动增量更新，请通过 GitHub Desktop 同步代码。")
+        return {"status": "development_checkout", "updated": [], "version": version}
     config_path = root / "updates" / "update_source.json"
     config = _load_config(config_path)
     return apply_update(root, config, opener=opener, log=log)
