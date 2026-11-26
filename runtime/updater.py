@@ -76,7 +76,10 @@ def _encode_request_url(url: str) -> str:
     Existing percent escapes and URL delimiters are preserved.
     """
     parts = urlsplit(url)
-    path = quote(parts.path, safe="/%:@!
+    path = quote(parts.path, safe="/%:@!$&'()*+,;=-._~")
+    query = quote(parts.query, safe="=&?/:@!$'()*+,;%-._~")
+    return urlunsplit((parts.scheme, parts.netloc, path, query, ""))
+
 def _read_url(url: str, timeout: float, opener=None, limit: int = MAX_FILE_BYTES) -> bytes:
 '()*+,;=-._~")
     query = quote(parts.query, safe="=&?/:@!    request = Request(_encode_request_url(url), headers={"User-Agent": USER_AGENT, "Accept": "application/json, application/octet-stream"})
