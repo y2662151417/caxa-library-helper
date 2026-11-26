@@ -55,7 +55,7 @@ class IsolatedTestPackageTests(unittest.TestCase):
                 root = "CAXA_图库助手_v0.42.17_独立测试版/"
                 launcher = archive.read(root + "启动CAXA助手.bat").decode("utf-8-sig")
                 self.assertIn("CAXA_Library_Helper_TEST_0_42_17", launcher)
-                self.assertIn("program\\\\CAXA助手.exe", launcher)
+                self.assertIn("program\\CAXA助手.exe", launcher)
                 self.assertNotIn("py -3", launcher)
                 self.assertNotIn("python.exe", launcher)
                 self.assertNotIn("where python", launcher)
@@ -68,3 +68,4 @@ class IsolatedTestPackageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
