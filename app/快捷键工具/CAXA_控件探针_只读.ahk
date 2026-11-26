@@ -22,19 +22,20 @@ Persistent
         if MsgBox(message, "只读诊断授权", "YesNo Icon? Default2") != "Yes"
             return
 
-        stages := Map("0", "绘图主窗口", "1", "拾取过滤设置", "2", "左侧特性栏",
-            "3", "定义图符", "4", "图符入库")
+        stages := Map("0", "绘图主窗口", "1", "图层设置（尺寸线层）", "2", "拾取过滤设置",
+            "3", "左侧特性栏", "4", "定义图符", "5", "图符入库")
         answer := InputBox("标注本次观察的 CAXA 阶段（只输入数字）："
             . "`n0 绘图主窗口"
-            . "`n1 拾取过滤设置"
-            . "`n2 左侧特性栏"
-            . "`n3 定义图符"
-            . "`n4 图符入库", "诊断阶段", "w420 h230", "0")
+            . "`n1 图层设置（尺寸线层）"
+            . "`n2 拾取过滤设置"
+            . "`n3 左侧特性栏"
+            . "`n4 定义图符"
+            . "`n5 图符入库", "诊断阶段", "w420 h255", "0")
         if answer.Result != "OK"
             return
         stage := Trim(answer.Value)
         if !stages.Has(stage) {
-            MsgBox("阶段编号只能为 0 至 4。本次没有收集窗口信息。", "只读诊断取消", "Icon!")
+            MsgBox("阶段编号只能为 0 至 5。本次没有收集窗口信息。", "只读诊断取消", "Icon!")
             return
         }
         stageLabel := stages[stage]
@@ -66,7 +67,10 @@ Persistent
             result .= "`r`n"
         }
 
-        dataDir := EnvGet("LOCALAPPDATA") "\CAXA_Library_Helper\diagnostics"
+        root := EnvGet("CAXA_HELPER_DATA_DIR")
+        if root = ""
+            root := EnvGet("LOCALAPPDATA") "\CAXA_Library_Helper"
+        dataDir := root "\diagnostics"
         DirCreate(dataDir)
         file := dataDir "\controls_stage" stage "_" FormatTime(A_Now, "yyyyMMdd_HHmmss")
             . "_" A_TickCount ".txt"
