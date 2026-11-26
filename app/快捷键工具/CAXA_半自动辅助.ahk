@@ -642,25 +642,8 @@ startSymbolDefinition(expectedSignature) {
 }
 
 
-findUniqueVisibleProbeDialog(pid, mainHwnd) {
-    matches := []
-    for hwnd in WinGetList("ahk_pid " pid) {
-        if hwnd = mainHwnd
-            continue
-        try {
-            if !(WinGetStyle("ahk_id " hwnd) & 0x10000000)
-                continue
-            if WinGetTitle("ahk_id " hwnd) = ""
-                continue
-            matches.Push(hwnd)
-        } catch {
-        }
-    }
-    return matches.Length = 1 ? matches[1] : 0
-}
-
-; Read-only inspection of the exact published CAXA window/control tree.
-; This function never activates windows, sends CAD keys, clicks controls, or reads control text.
+; Read-only inspection of every visible top-level window in the exact published CAXA process.
+; It does not activate windows, send CAD keys, click controls, or read control text.
 probeCaxaControls(expectedSignature) {
     global jobFile, cadExe, dataDir, isPaused
     if isPaused {
@@ -692,46 +675,11 @@ probeCaxaControls(expectedSignature) {
         autoTip("工作副本窗口进程与已绑定 CAXA 不一致；诊断已停止")
         return false
     }
-
-    stages := Map(
-        "0", "绘图主窗口",
-        "1", "图层设置（尺寸线层）",
-        "2", "拾取过滤设置",
-        "3", "左侧特性栏",
-        "4", "定义图符",
-        "5", "图符入库"
-    )
-    prompt := "请选择当前已打开的 CAXA 界面阶段（只输入数字）："
-    prompt .= Chr(10) "0 绘图主窗口"
-    prompt .= Chr(10) "1 图层设置（尺寸线层）"
-    prompt .= Chr(10) "2 拾取过滤设置"
-    prompt .= Chr(10) "3 左侧特性栏"
-    prompt .= Chr(10) "4 定义图符"
-    prompt .= Chr(10) "5 图符入库"
-    answer := InputBox(prompt, "只读控件诊断", "w430 h265", "0")
-    if answer.Result != "OK"
-        return false
-    stage := Trim(answer.Value)
-    if !stages.Has(stage) {
-        MsgBox("阶段编号只能为 0 至 5；本次没有收集窗口信息。", "只读诊断取消", "Icon!")
+    if !(WinGetStyle("ahk_id " mainHwnd) & 0x10000000) {
+        autoTip("当前工作副本窗口不可见；只读诊断已停止")
         return false
     }
 
-    ; Layer/filter/gallery are separate dialogs. The docked properties pane,
-    ; symbol-definition prompts and main drawing are inspected on the main HWND.
-    targetHwnd := mainHwnd
-    if stage = "1" || stage = "2" || stage = "5"
-        targetHwnd := findUniqueVisibleProbeDialog(pid, mainHwnd)
-    if !targetHwnd {
-        autoTip("未找到唯一的 CAXA 对话框；请只保留一个目标弹窗后重试")
-        return false
-    }
-    if !WinExist("ahk_id " targetHwnd)
-      || WinGetPID("ahk_id " targetHwnd) != pid {
-        autoTip("目标窗口身份发生变化；诊断已停止")
-        return false
-    }
-    targetClass := WinGetClass("ahk_id " targetHwnd)
     if !verifyBeforeAction(expectedSignature)
       || !FileExist(jobFile)
       || IniRead(jobFile, "active", "job_signature", "") != expectedSignature
@@ -743,54 +691,139 @@ probeCaxaControls(expectedSignature) {
         return false
     }
 
+    ; Keep the exact task window first; add every other visible top-level
+    ; window owned by the same CAXA process. Never select by window title.
+    maxWindows := 20
+    maxControls := 1200
+    maxControlsPerWindow := 300
+    windowHandles := [mainHwnd]
+    truncatedWindows := 0
+    for hwnd in WinGetList("ahk_pid " pid) {
+        if hwnd = mainHwnd
+            continue
+        try {
+            if !(WinGetStyle("ahk_id " hwnd) & 0x10000000)
+                continue
+            if windowHandles.Length < maxWindows
+                windowHandles.Push(hwnd)
+            else
+                truncatedWindows += 1
+        } catch {
+        }
+    }
+
+    snapshots := []
+    totalControls := 0
     try {
-        items := WinGetControls("ahk_id " targetHwnd)
         nl := Chr(13) Chr(10)
-        result := "CAXA read-only control diagnostics - no user content" nl
-        result .= "Stage: " stage " - " stages[stage] nl
+        result := "CAXA read-only window/control diagnostics - no user content" nl
         result .= "Process: " process nl
         result .= "MainWindowClass: " mainClass nl
-        result .= "TargetWindowClass: " targetClass nl
-        result .= "Controls discovered: " items.Length nl
-        result .= "Positions: parent-window client coordinates when available" nl
-        result .= "No titles, control text, drawing text, parameters or screenshots were captured." nl
-        result .= "Custom-drawn and UIA-only controls may be absent." nl
-        limit := Min(items.Length, 300)
-        for index, ctrl in items {
-            if index > limit
+        result .= "Visible top-level windows recorded: " windowHandles.Length nl
+        result .= "Limits: " maxWindows " windows; " maxControlsPerWindow " controls/window; " maxControls " controls total" nl
+        result .= "No window titles, control text, drawing text, parameters or screenshots were captured." nl
+        result .= "Only the exact task-bound CAXA process was inspected." nl
+
+        for windowIndex, hwnd in windowHandles {
+            if totalControls >= maxControls
                 break
-            result .= "ClassNN: " ctrl
-            try {
-                ControlGetPos &cx, &cy, &cw, &ch, ctrl, "ahk_id " targetHwnd
-                result .= " | x=" cx " y=" cy " w=" cw " h=" ch
-            } catch {
-                result .= " | geometry unavailable"
+            if !WinExist("ahk_id " hwnd) || WinGetPID("ahk_id " hwnd) != pid {
+                autoTip("扫描期间 CAXA 窗口发生变化；报告未保存")
+                return false
             }
+            className := WinGetClass("ahk_id " hwnd)
+            wx := 0
+            wy := 0
+            ww := 0
+            wh := 0
+            positionAvailable := true
+            try {
+                WinGetPos &wx, &wy, &ww, &wh, "ahk_id " hwnd
+            } catch {
+                positionAvailable := false
+            }
+            controls := []
+            controlsAvailable := true
+            try {
+                controls := WinGetControls("ahk_id " hwnd)
+            } catch {
+                controlsAvailable := false
+            }
+            snapshots.Push({hwnd: hwnd, className: className})
+            result .= nl "Window #" windowIndex
+            result .= " | Role: " (hwnd = mainHwnd ? "Main drawing window" : "Other visible CAXA window")
+            result .= " | HWND: " hwnd
+            result .= " | Class: " className
+            if positionAvailable
+                result .= " | ScreenRect: x=" wx " y=" wy " w=" ww " h=" wh
+            else
+                result .= " | ScreenRect: unavailable"
             result .= nl
+            result .= "Controls discovered: " controls.Length
+            if !controlsAvailable
+                result .= " (enumeration unavailable)"
+            result .= nl
+
+            controlLimit := Min(controls.Length, maxControlsPerWindow, maxControls - totalControls)
+            for controlIndex, ctrl in controls {
+                if controlIndex > controlLimit
+                    break
+                controlHwnd := 0
+                try {
+                    controlHwnd := ControlGetHwnd(ctrl, "ahk_id " hwnd)
+                } catch {
+                }
+                result .= "  ClassNN: " ctrl
+                if controlHwnd
+                    result .= " | ControlHWND: " controlHwnd
+                try {
+                    ControlGetPos &cx, &cy, &cw, &ch, ctrl, "ahk_id " hwnd
+                    result .= " | ClientRect: x=" cx " y=" cy " w=" cw " h=" ch
+                } catch {
+                    result .= " | geometry unavailable"
+                }
+                result .= nl
+                totalControls += 1
+            }
+            if controls.Length > controlLimit
+                result .= "  Truncated: recorded " controlLimit " of " controls.Length " controls." nl
         }
-        if items.Length > limit
-            result .= "Truncated: only first " limit " controls were recorded." nl
+
+        if truncatedWindows > 0
+            result .= nl "Additional visible windows omitted by the " maxWindows " window limit: " truncatedWindows nl
+        if totalControls >= maxControls
+            result .= "Global control limit reached: " maxControls nl
+        result .= "Custom-drawn and UIA-only controls may be absent." nl
 
         if !verifyBeforeAction(expectedSignature)
           || !FileExist(jobFile)
           || IniRead(jobFile, "active", "job_signature", "") != expectedSignature
-          || !WinExist("ahk_id " targetHwnd)
-          || WinGetPID("ahk_id " targetHwnd) != pid
-          || WinGetClass("ahk_id " targetHwnd) != targetClass
           || !WinExist("ahk_id " mainHwnd)
           || WinGetPID("ahk_id " mainHwnd) != pid
+          || WinGetClass("ahk_id " mainHwnd) != mainClass
           || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
-            autoTip("诊断期间任务或窗口发生变化；报告未保存")
+            autoTip("扫描期间任务或主窗口身份发生变化；报告未保存")
             return false
+        }
+        for _, item in snapshots {
+            if !WinExist("ahk_id " item.hwnd)
+              || WinGetPID("ahk_id " item.hwnd) != pid
+              || WinGetClass("ahk_id " item.hwnd) != item.className
+              || !(WinGetStyle("ahk_id " item.hwnd) & 0x10000000) {
+                autoTip("扫描期间目标窗口发生变化；报告未保存")
+                return false
+            }
         }
 
         outputDir := dataDir "\diagnostics"
         DirCreate outputDir
-        file := outputDir "\controls_stage" stage "_" FormatTime(A_Now, "yyyyMMdd_HHmmss")
+        file := outputDir "\controls_all_" FormatTime(A_Now, "yyyyMMdd_HHmmss")
             . "_" A_TickCount ".txt"
         FileAppend result, file, "UTF-8"
-        MsgBox("已保存阶段【" stages[stage] "】的只读控件报告（最多300项）。"
-            . Chr(10) "不包含图纸文本、控件文本或截图。" Chr(10) Chr(10) file,
+        MsgBox("已保存当前 CAXA 进程的只读扫描报告。"
+            . Chr(10) "可见窗口：" windowHandles.Length
+            . Chr(10) "记录控件：" totalControls
+            . Chr(10) Chr(10) file,
             "只读诊断完成", "Iconi")
         return true
     } catch as e {

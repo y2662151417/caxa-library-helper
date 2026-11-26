@@ -31,7 +31,7 @@ class ReadOnlyControlProbeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bridge.request_panel_action(Path(folder), "probe_cad_controls", "not-a-signature")
 
-    def test_controller_probe_function_contains_no_cad_input_or_click_calls(self):
+    def test_controller_probe_is_one_shot_and_read_only(self):
         source = (ROOT / "app" / "快捷键工具" / "CAXA_半自动辅助.ahk").read_text(encoding="utf-8-sig")
         start = source.index("probeCaxaControls(expectedSignature) {")
         end = source.index("; When Symdef opens the gallery dialog", start)
@@ -43,11 +43,21 @@ class ReadOnlyControlProbeTests(unittest.TestCase):
             re.MULTILINE,
         )
         self.assertIsNone(forbidden.search(body))
-        self.assertIn("WinGetControls", body)
-        self.assertIn("findUniqueVisibleProbeDialog", source)
-        self.assertIn("0x10000000", source)
+        self.assertIn('WinGetList("ahk_pid " pid)', body)
+        self.assertIn('WinGetControls("ahk_id " hwnd)', body)
+        self.assertIn("ControlGetHwnd", body)
         self.assertIn("ControlGetPos", body)
-        self.assertIn("FileAppend result", body)
+        self.assertIn("controls_all_", body)
+        self.assertIn("maxWindows := 20", body)
+        self.assertIn("maxControls := 1200", body)
+        self.assertIn("maxControlsPerWindow := 300", body)
+        self.assertNotIn("InputBox(", body)
+        self.assertNotIn("findUniqueVisibleProbeDialog", source)
+        self.assertNotIn("WinGetText", body)
+        self.assertNotIn("ControlGetText", body)
+        self.assertIn("titleHasExactWorkFile", body)
+        self.assertIn("verifyBeforeAction", body)
+        self.assertIn("0x10000000", body)
 
     def test_standalone_probe_uses_configured_data_directory(self):
         source = (ROOT / "app" / "快捷键工具" / "CAXA_控件探针_只读.ahk").read_text(encoding="utf-8")
