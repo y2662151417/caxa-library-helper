@@ -19,3 +19,8 @@
 - Windows AutoHotkey v2 parse-only 检查此前通过。
 - Python 单元测试此前因增量更新清单中的文件大小/哈希未同步而失败；本轮同步清单后重新运行 CI。
 - F3–F12 的实际按键优先级、CAXA 2024 控件写入和图纸显示结果仍需用户在虚构测试图上实机验收。
+
+## 只读诊断快捷键
+
+- 独立只读控件探针由 Ctrl+Alt+Shift+F8 改为 F2；仅当配置的 CAXA 进程处于前台时接管 F2。
+- Windows CI 现在分别对主控制器和独立只读探针执行 AutoHotkey v2.0.32 parse-only 检查。
