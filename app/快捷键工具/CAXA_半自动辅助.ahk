@@ -73,12 +73,12 @@ cadOk(quiet := false) {
     global cadExe, isPaused
     if isPaused {
         if !quiet
-            autoTip("已暂停：Ctrl+Alt+End 可恢复")
+            autoTip("已暂停：按 Pause 可恢复")
         return false
     }
     if cadExe = "" {
         if !quiet
-            MsgBox "尚未绑定 CAXA 进程。先打开 CAXA 主窗口，按 Ctrl+Alt+B 并确认。", "未绑定", "Icon!"
+            MsgBox "尚未绑定 CAXA 进程。请在悬浮助手中点击【连接当前 CAXA】并确认。", "未绑定", "Icon!"
         return false
     }
     try {
@@ -233,7 +233,7 @@ safeClick(slot, label) {
         className := IniRead(cfgFile, slot, "class", "")
         savedTitle := IniRead(cfgFile, slot, "title", "")
         if x = "" || y = "" || className = "" {
-            MsgBox "按钮【" label "】未标定。按住 Ctrl+Alt+Shift 并按指定数字，鼠标先悬停在对应按钮上。", "需要标定", "Icon!"
+            MsgBox "按钮【" label "】未标定。请打开悬浮助手【设置 → 首次校准】，按提示完成一次校准。", "需要标定", "Icon!"
             return
         }
         if WinGetClass("A") != className {
@@ -473,6 +473,10 @@ PanelActionPoll() {
             selectFilteredObjects(signature)
         } else if action = "open_properties" {
             runPublishedNativeCommand(signature, "properties", "打开属性面板")
+        } else if action = "open_layer_manager" {
+            runPublishedNativeCommand(signature, "layer", "打开图层设置")
+        } else if action = "open_all_layers" {
+            runPublishedNativeCommand(signature, "layon", "全部打开图层")
         } else if action = "apply_color_layer" {
             applyColorLayer(signature, targetLayer)
         } else if action = "calibrate_layer_combo" {
@@ -1343,7 +1347,7 @@ applyColorLayer(expectedSignature, targetLayer) {
 ; work-copy window and the live workbench lease.
 runPublishedNativeCommand(expectedSignature, command, label) {
     global jobFile, isPaused, cadExe
-    allowed := Map("objectset", true, "properties", true)
+    allowed := Map("objectset", true, "properties", true, "layer", true, "layon", true)
     if !allowed.Has(command) {
         autoTip("未允许的 CAXA 命令；已拒绝")
         return false
@@ -1382,10 +1386,11 @@ runPublishedNativeCommand(expectedSignature, command, label) {
             return false
         }
         ; The operator must finish/cancel any active CAXA command first.
-        ; The command opens a native dialog/palette only; no object is selected.
+        ; layer opens CAXA's native layer dialog; layon only opens closed layers.
+        ; Neither command selects entities, changes object properties or saves the EXB.
         SendText command
         Send "{Enter}"
-        autoTip("已向当前工作副本发送 CAXA 命令：" command "。请在 CAXA 中完成后续选择和属性确认")
+        autoTip(command = "layon" ? "已执行图层全开（layon）；冻结状态未改变，也未保存图纸" : "已向当前工作副本发送 CAXA 命令：" command "。请在 CAXA 图层设置窗口中操作")
         return true
     } catch as e {
         autoTip("启动" label "失败：" e.Message)
@@ -1459,6 +1464,9 @@ statusInfo(*) {
         value := IniRead(cfgFile, slot, "control", "")
         description .= "`n" title "：" (value != "" ? "已标定" : "未标定")
     }
+    description .= "`n单键：F3填入图符名称；F4全部图层打开；F5定义图符；F6开始/下一视图；F7上一视图；F8图层设置；F9复制名称；F10属性编辑；F11填入标题栏；F12状态。"
+    description .= "`nPause：暂停/恢复助手快捷键；暂停后 F3-F12 交还给 CAXA。"
+    description .= "`n图层：F8打开 layer 设置单层开关；F4执行 layon 全开（不解冻、不解锁）。"
     description .= "`n删除重线：悬浮面板按钮（原生命令；人工选取/确认）"
     description .= "`n当前任务：" (FileExist(jobFile) ? "已发布，使用前需核对" : "未发布")
     global guideItems, guideIndex
@@ -1466,18 +1474,8 @@ statusInfo(*) {
     MsgBox description, "CAXA 半自动辅助状态"
 }
 
-^!b::bindCad()
-^!+1::calibrate("define", "定义图符")
-^!+2::calibrate("attrEdit", "属性编辑")
-^!+3::calibrate("attrFill", "填入当前标题栏属性值")
-
-; Active process, class, and (for dialogs) title must match calibration.
-^!F5::safeClick("define", "定义图符")
-^!F9::copySuggestedName()
-^!F10::safeClick("attrEdit", "属性编辑")
-^!F11::safeClick("attrFill", "填入当前标题栏属性值")
-^!F12::statusInfo()
-; Duplicate-line cleanup is launched from the floating panel; no daily hotkey required.
+; Legacy Ctrl+Alt and Ctrl+Alt+Shift shortcuts were replaced by single-key bindings at EOF.
+; Connect and one-time calibration remain available from the compact floating panel.
 
 ; ---------------- Optional symbol-name field control ----------------------
 ; Uses a calibrated Windows edit control rather than fixed screen coordinates.
@@ -1646,11 +1644,6 @@ fillSymbolNameField(fromPanel := false, expectedSignature := "") {
         MsgBox "CAXA 控件无法直接填写：" e.Message "`n请使用 Ctrl+Alt+F9 复制名称并手动粘贴。", "仅保留手工操作", "Icon!"
     }
 }
-
-^!+7::calibrateSymbolNameField()
-^!F8::fillSymbolNameField()
-
-
 
 ; ---------------- Panel-driven multi-view guide ----------------------------
 ; Panel actions (plus legacy fallback hotkeys) advance an operator-declared
@@ -1845,34 +1838,8 @@ endGuide(*) {
     autoTip("已清除视图引导和本地断点，不影响 CAD 和工作台记录")
 }
 
-^!F6::startGuide()
-^!PgDn::nextGuide()
-^!PgUp::previousGuide()
-^!Home::showGuideHint()
-^!+F6::endGuide()
-
-; Emergency switch stays functional even if CAD is not active.
-^!End::{
-    global isPaused
-    isPaused := !isPaused
-    autoTip(isPaused ? "自动化已暂停" : "自动化已恢复")
-}
-
-; ---------------- Optional automatic property-table read ------------------
-; One-time setup on a dummy CAXA drawing:
-;   Ctrl+Alt+Shift+5: hover parameter-table object in CAD drawing;
-;   Ctrl+Alt+Shift+6: hover a cell of the OPEN parameter editor;
-;   Ctrl+Alt+Shift+9: toggle automatic read after every workbench-opened EXB.
-; The automation never edits or saves an EXB. If CAXA changes dialog layout,
-; it refuses to proceed. Ctrl+Alt+End pauses all actions immediately.
-
-^!+5::calibrate("paramObject", "参数栏对象位置（在标准图绘图界面标定）")
-^!+6::calibrate("paramGrid", "参数栏编辑窗口的表格单元格（在弹窗内标定）")
-^!+9::{
-    global autoReadOn, cfgFile
-    autoReadOn := false
-    autoTip("CAXA 2024 参数窗口尚未实机验证：自动 Ctrl+A/Ctrl+C 已锁定；请使用人工复制回退")
-}
+; Legacy multi-modifier guide/parameter shortcuts removed.
+; The parameter-grid auto-read path remains disabled until a CAXA 2024 test proves it safe.
 
 ParamCapturePoll() {
     global dataDir, autoReadOn, captureSeen, paramBusy
@@ -1970,3 +1937,122 @@ CaptureParamGrid(token,fileName) {
     IniWrite src,response,"capture","source"
     autoTip("已读取候选参数，等待工作台核对并缓存")
 }
+
+
+; ---------------- Single-key shortcuts (v0.42.15) -------------------------
+; F4/F8 intentionally take precedence over CAXA's native bindings while this
+; helper is active. Pause disables all helper function-key bindings and returns
+; the keys to CAXA. Text-entry controls and non-target windows are excluded.
+
+isCaxaTaskProcessActive() {
+    global cadExe, jobFile
+    if cadExe = "" || !FileExist(jobFile)
+        return false
+    try {
+        if StrLower(WinGetProcessName("A")) != StrLower(cadExe)
+            return false
+        workFile := IniRead(jobFile, "active", "working_file", "")
+        if workFile = ""
+            return false
+        mainHwnd := findUniqueWorkWindow(workFile)
+        if !mainHwnd || WinGetPID("A") != WinGetPID("ahk_id " mainHwnd)
+            return false
+        return titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile)
+    } catch {
+        return false
+    }
+}
+
+isCaxaDrawingWindowActive() {
+    global isPaused, jobFile
+    if isPaused || !isCaxaTaskProcessActive()
+        return false
+    try {
+        workFile := IniRead(jobFile, "active", "working_file", "")
+        mainHwnd := findUniqueWorkWindow(workFile)
+        if !mainHwnd || WinGetID("A") != mainHwnd
+            return false
+        focused := ControlGetFocus("A")
+        if focused != "" {
+            focusedHwnd := ControlGetHwnd(focused, "A")
+            if !focusedHwnd
+                return false
+            focusedClass := WinGetClass("ahk_id " focusedHwnd)
+            ; Do not steal keys from edit fields, command text, list controls,
+            ; ribbon buttons or dialogs. Unknown custom canvas controls are allowed.
+            if RegExMatch(focusedClass, "i)^(Edit|ComboBox|RichEdit.*|Scintilla|ListBox|Button|SysListView32|SysTreeView32)$")
+                return false
+        }
+        return true
+    } catch {
+        return false
+    }
+}
+
+isCaxaTaskHotkeysActive() {
+    global isPaused
+    return !isPaused && isCaxaTaskProcessActive()
+}
+
+openLayerManagerShortcut(*) {
+    global jobFile
+    if !FileExist(jobFile) {
+        autoTip("请先在悬浮助手中选择并打开当前工作副本")
+        return
+    }
+    signature := IniRead(jobFile, "active", "job_signature", "")
+    runPublishedNativeCommand(signature, "layer", "打开图层设置")
+}
+
+openAllLayersShortcut(*) {
+    global jobFile
+    if !FileExist(jobFile) {
+        autoTip("请先在悬浮助手中选择并打开当前工作副本")
+        return
+    }
+    signature := IniRead(jobFile, "active", "job_signature", "")
+    runPublishedNativeCommand(signature, "layon", "全部打开图层")
+}
+
+startSymbolDefinitionShortcut(*) {
+    global jobFile
+    if !FileExist(jobFile) {
+        autoTip("请先在悬浮助手中选择并打开当前工作副本")
+        return
+    }
+    signature := IniRead(jobFile, "active", "job_signature", "")
+    startSymbolDefinition(signature)
+}
+
+startOrNextGuideShortcut(*) {
+    global guideItems
+    if guideItems.Length = 0
+        startGuide()
+    else
+        nextGuide()
+}
+
+toggleAutomationPause(*) {
+    global isPaused
+    isPaused := !isPaused
+    autoTip(isPaused ? "助手快捷键已暂停；F3-F12 已交还给 CAXA。按 Pause 恢复" : "助手快捷键已恢复")
+}
+
+#HotIf isCaxaTaskHotkeysActive()
+F3::fillSymbolNameField()
+F9::copySuggestedName()
+F10::safeClick("attrEdit", "属性编辑")
+F11::safeClick("attrFill", "填入当前标题栏属性值")
+F12::statusInfo()
+#HotIf
+
+#HotIf isCaxaDrawingWindowActive()
+F4::openAllLayersShortcut()
+F5::startSymbolDefinitionShortcut()
+F6::startOrNextGuideShortcut()
+F7::previousGuide()
+F8::openLayerManagerShortcut()
+#HotIf
+
+; Global emergency toggle: even when paused, this single key can restore the helper.
+Pause::toggleAutomationPause()
