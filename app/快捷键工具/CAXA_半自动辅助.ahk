@@ -477,6 +477,8 @@ PanelActionPoll() {
             runPublishedNativeCommand(signature, "layer", "打开图层设置")
         } else if action = "open_all_layers" {
             runPublishedNativeCommand(signature, "layon", "全部打开图层")
+        } else if action = "check_active_drawing" {
+            checkActiveDrawing(signature)
         } else if action = "apply_color_layer" {
             applyColorLayer(signature, targetLayer)
         } else if action = "calibrate_layer_combo" {
@@ -1344,6 +1346,49 @@ applyColorLayer(expectedSignature, targetLayer) {
         autoTip("颜色归层未完成：" e.Message)
         return false
     }
+}
+
+checkActiveDrawing(expectedSignature) {
+    global jobFile, cadExe, dataDir, isPaused
+    result := "unknown"
+    activeTitle := ""
+    workFile := ""
+    try {
+        if isPaused || cadExe = "" || !FileExist(jobFile)
+            throw Error("控制器未连接或没有活动图纸任务")
+        sig := IniRead(jobFile, "active", "job_signature", "")
+        workFile := IniRead(jobFile, "active", "working_file", "")
+        if sig != expectedSignature || workFile = ""
+            throw Error("当前图纸任务已变化")
+        activeExe := WinGetProcessName("A")
+        activeTitle := WinGetTitle("A")
+        if StrLower(activeExe) != StrLower(cadExe)
+            result := "mismatch"
+        else if titleHasExactWorkFile(activeTitle, workFile)
+            result := "matched"
+        else
+            result := "unknown"
+    } catch {
+        result := "unknown"
+    }
+    statusFile := dataDir "\\active_drawing_check.ini"
+    try {
+        if FileExist(statusFile)
+            FileDelete statusFile
+        IniWrite expectedSignature, statusFile, "check", "signature"
+        IniWrite result, statusFile, "check", "result"
+        IniWrite workFile, statusFile, "check", "expected_file"
+        IniWrite activeTitle, statusFile, "check", "active_title"
+    } catch as e {
+        autoTip("当前图纸核对结果无法写入；请查看 CAXA 标题栏")
+        return
+    }
+    if result = "matched"
+        autoTip("当前 CAXA 图纸与已选工作副本一致")
+    else if result = "mismatch"
+        autoTip("当前活动窗口不是已选工作副本；未执行图纸操作")
+    else
+        autoTip("无法确认当前 CAXA 标签页；请检查标题栏后重试")
 }
 
 ; Start only documented CAXA native dialogs. This helper never selects entities
