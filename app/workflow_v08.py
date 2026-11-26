@@ -20,7 +20,7 @@ STAGES = (
     '检查图符名称与标题栏属性',
     '重新插入图库并复核',
 )
-WORKFLOW_REVISION = 'video-order-v16-color-assist-v15-eraseline-assisted-launch'
+WORKFLOW_REVISION = 'video-order-v16-color-layer-v16-eraseline-assisted-launch'
 # No step advances automatically on a CAD shortcut, except operator-requested
 # explicit stage acknowledgement; no command is claimed to have succeeded.
 GATE_LABELS = (
@@ -59,27 +59,17 @@ def safe_color_plan(profile:dict, *, selection_confirmed:bool, include_titlebloc
         raise WorkflowError('必须先由操作员框定机械视图范围，不允许全图默认执行')
     rules = profile.get('color_rules',[])
     if not rules: raise WorkflowError('尚未配置颜色规则')
-    missing=[]
-    for r in rules:
-        if not r.get('target_layer') or not r.get('target_linetype') or not r.get('linetype_scale'):
-            missing.append(r['source_color'])
+    missing=[r['source_color'] for r in rules if not r.get('target_layer')]
     if missing:
-        raise WorkflowError('这些颜色尚未完整配置图层、线型和比例：'+'、'.join(missing))
-    src={r['source_color'].casefold() for r in rules}
-    unsafe=[]
-    for r in rules:
-        dest=r.get('target_color')
-        if dest and dest.casefold() in src and dest.casefold()!=r['source_color'].casefold():
-            unsafe.append(f"{r['source_color']}→{dest}")
-    if unsafe:
-        raise WorkflowError('颜色转换会与后续原色筛选冲突，需逐组保存选择集或更改执行顺序：'+'、'.join(unsafe))
+        raise WorkflowError('这些颜色尚未配置目标图层：'+'、'.join(missing))
     return [{
         'source_color': r['source_color'],
         'target_layer':r['target_layer'],
-        'target_linetype':r['target_linetype'],
-        'linetype_scale':r['linetype_scale'],
-        'target_color':r.get('target_color') or r['source_color'],
-        'selection_scope':'操作员确认的视图区域（排除标题栏、图框）',
+        'target_linetype':r.get('target_linetype'),
+        'linetype_scale':r.get('linetype_scale'),
+        'target_color':r.get('target_color'),
+        'layer_properties_source':'当前 CAXA 图纸中预先配置的目标图层特性',
+        'selection_scope':'操作员确认的机械视图区域（排除标题栏、图框和尺寸对象）',
         'execution_status':'待CAXA实机验证；不可直接声称已执行',
     } for r in rules]
 
@@ -94,55 +84,35 @@ def validate_color_rule(profile:dict, source_color:str)->dict:
     rule=matches[0]
     if not isinstance(rule.get('target_layer'),str) or not rule['target_layer'].strip():
         raise WorkflowError(rule['source_color']+' 尚未配置目标图层')
-    if not isinstance(rule.get('target_linetype'),str) or not rule['target_linetype'].strip():
-        raise WorkflowError(rule['source_color']+' 尚未配置目标线型')
-    scale=rule.get('linetype_scale')
-    if not isinstance(scale,(int,float)) or isinstance(scale,bool) or scale<=0:
-        raise WorkflowError(rule['source_color']+' 尚未配置有效的线型比例')
-    target=rule.get('target_color')
-    if target:
-        other_sources={r['source_color'].casefold() for r in profile.get('color_rules',[])
-                       if r['source_color'].casefold()!=rule['source_color'].casefold()}
-        if target.casefold() in other_sources:
-            raise WorkflowError('目标颜色与其他源颜色规则冲突；请先调整规则顺序或目标颜色')
     return dict(rule)
 
 
 def color_rule_instruction(rule:dict)->str:
-    """Operator-facing sequence for the native CAXA selection/property workflow."""
+    """Operator-facing sequence for the calibrated target-layer workflow."""
     return (
-        f"源颜色：{rule['source_color']}\n"
-        'CAXA 命令：objectset（拾取过滤设置）\n'
-        f"目标图层：{rule['target_layer']}\n"
-        f"目标线型：{rule['target_linetype']}\n"
-        f"线型比例：{rule['linetype_scale']}\n"
-        f"目标颜色：{rule.get('target_color') or '保持对象现有颜色'}\n\n"
-        '1. 在 CAXA「拾取过滤设置」中启用颜色条件，只选择上述源颜色；确认实体/图层/线型等其他过滤条件没有误排除目标对象。\n'
-        '2. 关闭过滤设置后，只在当前机械视图区域框选；不要包含图框、标题栏和尺寸对象。\n'
-        '3. 打开属性面板（CAXA 命令 properties），核对选中数量和对象范围，再设置目标图层、线型及线型比例。\n'
-        '4. 如需改变对象颜色，再按模板中的目标颜色设置；未配置时保持原颜色。\n'
-        '5. 复核后恢复拾取过滤默认状态。\n\n'
-        '注意：ByLayer 显示色不等于对象显式颜色；属性面板修改前必须确认选集。工具只负责启动 CAXA 原生命令，不自动框选或提交属性。'
+        f"源颜色：{rule['source_color']}\\n"
+        'CAXA 命令：objectset（拾取过滤设置）\\n'
+        f"目标图层：{rule['target_layer']}\\n"
+        '目标颜色、线型和线宽：使用当前 CAXA 图纸中该图层预先配置的特性\\n\\n'
+        '1. 在 CAXA 拾取过滤中选择上述源颜色。\\n'
+        '2. 只框选当前机械视图区域，排除图框、标题栏、尺寸和其他颜色组。\\n'
+        '3. 点击助手的“应用目标图层”；助手通过已校准的图层下拉框写入目标图层名称并读回核对。\\n'
+        '4. 检查图面颜色和线型是否符合目标图层特性，再恢复拾取过滤。\\n\\n'
+        '注意：对象颜色或线型若被显式指定而不是 ByLayer，仅改变图层归属未必会继承图层特性；首次必须用测试图验证。助手不会自动保存图纸。'
     )
 
-def color_filter_execution_cautions(profile:dict)->list[str]:
-    """Safety notes for CAXA pick-filter batches, NOT proof of CAD actions.
 
-    CAXA's filter uses intersection of entity/dimension/layer/color/linetype.
-    Effective displayed color may be inherited from a layer ('ByLayer'), so
-    filtering by visual color alone does not prove an object has that explicit
-    color. Consequently this routine never outputs executable CAD selections.
-    """
+def color_filter_execution_cautions(profile:dict)->list[str]:
+    """Safety notes for color filtering and target-layer assignment."""
     profiles.validate(profile)
-    notes = [
-        'CAXA 拾取过滤可通过 objectset 打开；实体、尺寸、图层、颜色、线型等条件为交集，先检查是否残留其他过滤条件。',
-        '选中对象后可通过 properties 打开属性面板；目标图层、线型和比例仍由操作员在面板中核对并修改。',
-        '图元显示为红/绿/白，不等于对象颜色明确设为红/绿/白；ByLayer 继承颜色需实机核查。',
-        '只在人工框定的机械视图范围内修改；排除标题栏、图框、尺寸对象和不能更改的中心线。',
-        '切换图层可能改变 ByLayer 图元的显示颜色；未经验证不得将多组颜色宏无确认地连续执行。',
-        '每组完成后应恢复拾取过滤到安全默认状态，并复核图层、线型和线型比例。',
+    return [
+        'CAXA 拾取过滤中的实体、尺寸、图层、颜色和线型条件为交集；每次开始前应确认没有残留过滤条件。',
+        '目标图层的颜色、线型和线宽应预先在 CAXA 图纸中设置；助手日常只写入目标图层名称。',
+        '对象颜色或线型若为显式值而非 ByLayer，移动到目标图层后未必继承图层特性；首次必须用虚构测试图核验。',
+        '只允许框选当前机械视图区域；排除标题栏、图框、尺寸对象和不能更改的中心线。',
+        '助手无法仅凭当前选集证明对象范围正确；应用前必须由操作员确认，应用后仍需检查图面。',
+        '每组完成后应恢复拾取过滤默认状态；助手不自动保存工作副本。',
     ]
-    return notes
 
 
 def view_instruction(profile:dict)->list[str]:
