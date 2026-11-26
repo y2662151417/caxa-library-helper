@@ -19,7 +19,7 @@
     ],
     "color_rules": [
       {"source_color":"红色","target_layer":"中心线层","target_linetype":null,"linetype_scale":null},
-      {"source_color":"绿色","target_layer":null,"target_linetype":null,"linetype_scale":null},
+      {"source_color":"绿色","target_layer":"虚线层","target_linetype":null,"linetype_scale":null},
       {"source_color":"白色","target_layer":null,"target_linetype":null,"linetype_scale":null}
     ]
   },
@@ -30,6 +30,9 @@
     "param_aliases": {},
     "name_tokens": ["图号", "图名"],
     "view_plan": [],
-    "color_rules": []
+    "color_rules": [
+      {"source_color": "红色", "target_layer": "中心线层"},
+      {"source_color": "绿色", "target_layer": "虚线层"}
+    ]
   }
 ]
