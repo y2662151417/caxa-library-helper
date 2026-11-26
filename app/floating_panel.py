@@ -115,12 +115,13 @@ class Panel:
         ttk.Button(row,text='设置',command=self.open_settings_window).grid(row=0,column=2,sticky='ew',padx=(3,0))
 
     def open_actions_page(self):
-        w=self._dialog('actions','操作入口','350x420')
+        w=self._dialog('actions','操作入口','350x445')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
         ttk.Label(w,text='只在需要时进入对应操作；所有页面都在这个悬浮窗口内切换。',
                   wraplength=320,foreground='#666').pack(anchor='w',pady=(0,8))
         ttk.Button(w,text='清理图纸',command=self.open_cleanup_window).pack(fill='x',pady=3,ipady=4)
+        ttk.Button(w,text='图层开关（F4 全开 / F8 设置）',command=self.open_layer_control_window).pack(fill='x',pady=3,ipady=4)
         ttk.Button(w,text='开始定义图符',command=self.define_symbol).pack(fill='x',pady=3,ipady=4)
         ttk.Button(w,text='属性与入库',command=self.open_insert_window).pack(fill='x',pady=3,ipady=4)
         ttk.Separator(w).pack(fill='x',pady=7)
@@ -129,6 +130,19 @@ class Panel:
         ttk.Button(w,text='只读诊断 CAXA 控件',command=self.probe_cad_controls).pack(fill='x',pady=3,ipady=4)
         ttk.Label(w,text='仅记录窗口/控件类别和位置；不读取图纸文字，不点击、不修改、不保存。',
                   wraplength=315,foreground='#666').pack(anchor='w',pady=(2,0))
+    def open_layer_control_window(self):
+        w=self._dialog('layers','图层开关','330x205')
+        if getattr(w,'_caxa_built',False):return
+        w._caxa_built=True
+        ttk.Label(w,text='单独关闭某个图层',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,3))
+        ttk.Label(w,text='打开 CAXA 图层设置，在目标图层的“打开”列点击状态图标。当前图层不能关闭。',
+                  wraplength=300,foreground='#555').pack(anchor='w',pady=2)
+        ttk.Button(w,text='打开图层设置（F8）',command=lambda:self._queue_ahk_action('open_layer_manager')).pack(fill='x',pady=4,ipady=4)
+        ttk.Separator(w).pack(fill='x',pady=4)
+        ttk.Button(w,text='全部图层打开（F4）',command=lambda:self._queue_ahk_action('open_all_layers')).pack(fill='x',pady=4,ipady=4)
+        ttk.Label(w,text='全部打开只恢复关闭状态，不修改冻结、锁定、当前图层或对象属性；不会自动保存。',
+                  wraplength=300,foreground='#666').pack(anchor='w',pady=(3,0))
+
     def collapse_panel(self):
         if self._collapsed:return
         self._collapsed=True
@@ -338,6 +352,10 @@ class Panel:
         w=self._dialog('settings','设置','350x390')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
+        ttk.Label(w,text='单键快捷键',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,3))
+        ttk.Label(w,text='F4 全部图层打开｜F8 图层设置｜Pause 暂停/恢复。助手运行时 F4/F8 优先由助手响应；暂停后恢复 CAXA 原生按键。',
+                  wraplength=315,foreground='#555').pack(anchor='w',pady=(0,7))
+        ttk.Separator(w).pack(fill='x',pady=5)
         ttk.Label(w,text='制作模板',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,4))
         self.combo=ttk.Combobox(w,state='readonly',textvariable=self.profile_display,
                                 values=[self._profile_display_name(x['id']) for x in self.profiles])
@@ -730,7 +748,8 @@ class Panel:
             '3. 在 CAXA 图层管理中手动关闭尺寸线层；不要删除尺寸对象。\n'
             '4. 按视图计划完成全部无尺寸视图。\n'
             '5. 恢复尺寸线层显示，并检查图面没有误关其它图层。\n\n'
-            '注意：当前版本不自动切换图层可见性，因为尚未验证 CAXA 2024 图层列表控件及行状态。')
+            '单独关闭图层：按 F8 打开 CAXA 图层设置，在目标层“打开”列点击状态图标；全部恢复：按 F4 执行 layon。'
+            '只处理打开/关闭，不改变冻结、锁定、当前图层或对象属性。CAXA 2024 实机行为仍需用测试图确认。')
 
 
     def open_calibration_window(self):
