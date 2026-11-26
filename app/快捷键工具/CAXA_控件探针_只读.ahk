@@ -99,7 +99,9 @@ isConfiguredCaxaForeground() {
     global cadExe
     if cadExe = ""
         return false
-    try return StrLower(WinGetProcessName("A")) = StrLower(cadExe)
-    catch
+    try {
+        return StrLower(WinGetProcessName("A")) = StrLower(cadExe)
+    } catch {
         return false
+    }
 }
