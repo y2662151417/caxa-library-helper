@@ -45,7 +45,7 @@ class Panel:
         self.block_name_status=tk.StringVar(value='正式块名称：尚未匹配')
         self.status=tk.StringVar(value='正在检查 CAD 控制器…')
         self.recommended=tk.StringVar(value='先选择图纸')
-        self.action_reason=tk.StringVar(value='点击“选择图纸”，选中一张图纸后点击“打开工作副本”。原图不会被直接修改。')
+        self.action_reason=tk.StringVar(value='点击“选择图纸”，选中一行后点击“打开图纸”。系统会自动创建工作副本。')
         self.guide_status=tk.StringVar(value='视图引导尚未启动')
         self._closed=False
         self._after_ids=set()
