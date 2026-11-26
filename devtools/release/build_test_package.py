@@ -71,7 +71,7 @@ def _isolated_launcher(source: Path, version: str) -> bytes:
     if text.count(old) != 1:
         raise ValueError("Could not safely replace the launcher data-directory block.")
     text = text.replace(old, new, 1)
-    if "CAXA_Library_Helper\\\"" in text or "UserData\\.caxa_userdata.json" in text:
+    if r"\\CAXA_Library_Helper" + '"' in text or r"UserData\\.caxa_userdata.json" in text:
         raise ValueError("Stable user-data path remains in the test launcher.")
     encoded = text.encode("utf-8")
     return (b"\xef\xbb\xbf" + encoded) if has_bom else encoded
@@ -186,10 +186,6 @@ def build_test_package(repo_root: Path, output_dir: Path) -> tuple[Path, Path]:
             raise ValueError(f"Unexpected files at package root: {top_files}")
         if f"CAXA_Library_Helper_TEST_{version.replace('.', '_')}" not in (staging / LAUNCHER_NAME).read_text(encoding="utf-8-sig"):
             raise ValueError("Test launcher does not use its isolated user-data directory.")
-        if "CAXA_Library_Helper_TEST_" not in str(update_config):
-            # Keep the isolation assertion explicit and independently tested below.
-            pass
-
         with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
             for item in sorted(staging.rglob("*")):
                 if item.is_file():
@@ -212,7 +208,7 @@ def build_test_package(repo_root: Path, output_dir: Path) -> tuple[Path, Path]:
         bat = archive.read(expected_prefix + LAUNCHER_NAME).decode("utf-8-sig")
         if f"CAXA_Library_Helper_TEST_{version.replace('.', '_')}" not in bat:
             raise ValueError("The package launcher is not isolated from stable user data.")
-        if "CAXA_Library_Helper\\\"" in bat or "UserData\\.caxa_userdata.json" in bat:
+        if r"\\CAXA_Library_Helper" + '"' in bat or r"UserData\\.caxa_userdata.json" in bat:
             raise ValueError("The package launcher still references stable user data.")
 
     digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
