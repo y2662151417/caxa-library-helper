@@ -463,7 +463,7 @@ class App:
             message=f'导入 {n} 个正式块名称，按完整图号准确匹配 {found}/{n} 项。'
             if detail:
                 message+='\n\n未匹配项（最多显示12项）：\n'+detail
-            message+='\n\n只有唯一匹配的块名称才会传给 CAXA 自动填写；不匹配项不会使用相似图号猜测。'
+            message+='\\n\\n悬浮面板会提供“复制块名称”；助手不会自动填写属性或执行图库入库。不匹配项不会使用相似图号猜测。'
             messagebox.showinfo('块名称清单导入完成',message,parent=parent)
         except Exception as e:
             messagebox.showerror('块名称清单导入失败',str(e),parent=parent)
@@ -931,3 +931,4 @@ if __name__=='__main__':
         except Exception:pass
     App(root)
     root.mainloop()
+
