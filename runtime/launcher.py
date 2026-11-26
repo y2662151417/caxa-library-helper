@@ -46,7 +46,9 @@ def main() -> int:
         print("程序文件不完整，请重新同步 CAXA 图库助手仓库。")
         return 2
 
-    if "--skip-update" not in sys.argv[1:]:
+    if "--skip-update" in sys.argv[1:]:
+        write_log("更新检查已通过 --skip-update 参数跳过。")
+    else:
         try:
             sys.path.insert(0, str(RUNTIME_DIR))
             import updater
@@ -57,6 +59,8 @@ def main() -> int:
             write_log(f"更新检查完成：状态={status}；版本={version}；下载/替换文件数={len(updated)}")
             if status == "updated":
                 write_log(f"已应用增量更新：{version}；文件：{updated}")
+            elif status == "development_checkout":
+                write_log("当前目录包含 .git：已禁用自动增量更新，请通过 GitHub Desktop Fetch/Pull 同步代码。")
         except Exception as exc:
             # An update failure must not prevent the last working version from starting.
             write_log(f"更新检查/应用失败，继续启动当前版本：{type(exc).__name__}: {exc}")

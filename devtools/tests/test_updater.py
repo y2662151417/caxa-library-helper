@@ -34,6 +34,52 @@ class IncrementalUpdaterTests(unittest.TestCase):
         (root/'app'/'module.py').write_text('old = True\n',encoding='utf-8')
         (root/'app'/'obsolete.py').write_text('obsolete\n',encoding='utf-8')
         (root/'data'/'progress.sqlite3').write_bytes(b'user progress')
+    def test_git_checkout_marker_directory_is_detected(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / ".git").mkdir()
+            self.assertTrue(updater.is_git_checkout(root))
+
+    def test_git_worktree_marker_file_is_detected(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / ".git").write_text("gitdir: ../.git/worktrees/helper\n", encoding="utf-8")
+            self.assertTrue(updater.is_git_checkout(root))
+
+    def test_non_git_installation_keeps_incremental_updates_enabled(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self.make_install(root)
+            self.assertFalse(updater.is_git_checkout(root))
+
+    def test_git_checkout_skips_network_and_preserves_all_program_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self.make_install(root)
+            (root / ".git").mkdir()
+            opener = FakeOpener({})
+            result = updater.apply_update(
+                root,
+                {"manifest_url": "https://updates.example.test/caxa/stable/manifest.json"},
+                opener=opener,
+            )
+            self.assertEqual(result["status"], "development_checkout")
+            self.assertEqual(result["version"], "0.39.0")
+            self.assertEqual(opener.calls, [])
+            self.assertEqual((root / "app" / "module.py").read_text(), "old = True\n")
+            self.assertTrue((root / "app" / "obsolete.py").exists())
+            self.assertEqual((root / "app" / "VERSION.txt").read_text(), "0.39.0\n")
+
+    def test_check_from_install_skips_even_when_local_update_config_is_invalid(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self.make_install(root)
+            (root / ".git").mkdir()
+            (root / "updates" / "update_source.json").write_text("{invalid", encoding="utf-8")
+            result = updater.check_from_install(root)
+            self.assertEqual(result["status"], "development_checkout")
+            self.assertEqual(result["version"], "0.39.0")
+
     def test_empty_update_source_is_safe_noop(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td); self.make_install(root)
