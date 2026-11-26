@@ -31,6 +31,8 @@ Windows 桌面半自动助手，用于管理本机 EXB 图纸任务，并通过�
 
 客户端读取 `updates/manifest.json`，逐文件比较 SHA-256，只下载变化的 `app/`、`runtime/` 文件。所有文件先下载并校验，再备份旧文件并替换；失败时回滚。正常更新不需要重新下载完整安装包。
 
+若程序根目录存在 .git（Git 目录或 worktree 文件），启动时自动更新会被禁用，必须通过 GitHub Desktop Fetch/Pull 同步；没有 .git 的独立运行目录仍使用自动增量更新。迁移脚本保留 Git 元数据，因此迁移后的仓库同样采用 GitHub Desktop 同步。
+
 发布流程见 [`docs/更新机制说明.md`](docs/更新机制说明.md)。
 
 ## 当前限制
