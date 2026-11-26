@@ -1023,7 +1023,8 @@ class Panel:
                         parent=self.win)
                 self._show_home_page()
                 return
-            self.app.update_plan()
+            if not self.app.update_plan():
+                return
             self.status.set('已按当前模板建立视图任务；视图选集和基点仍按 CAXA 实际提示完成。')
             self._show_home_page()
         except Exception as e:
