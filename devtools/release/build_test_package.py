@@ -71,7 +71,7 @@ def _isolated_launcher(source: Path, version: str) -> bytes:
     if text.count(old) != 1:
         raise ValueError("Could not safely replace the launcher data-directory block.")
     text = text.replace(old, new, 1)
-    if r"\\CAXA_Library_Helper" + '"' in text or r"UserData\\.caxa_userdata.json" in text:
+    if chr(92) + "CAXA_Library_Helper" + '"' in text or "UserData" + chr(92) + ".caxa_userdata.json" in text:
         raise ValueError("Stable user-data path remains in the test launcher.")
     encoded = text.encode("utf-8")
     return (b"\xef\xbb\xbf" + encoded) if has_bom else encoded
@@ -208,7 +208,7 @@ def build_test_package(repo_root: Path, output_dir: Path) -> tuple[Path, Path]:
         bat = archive.read(expected_prefix + LAUNCHER_NAME).decode("utf-8-sig")
         if f"CAXA_Library_Helper_TEST_{version.replace('.', '_')}" not in bat:
             raise ValueError("The package launcher is not isolated from stable user data.")
-        if r"\\CAXA_Library_Helper" + '"' in bat or r"UserData\\.caxa_userdata.json" in bat:
+        if chr(92) + "CAXA_Library_Helper" + '"' in bat or "UserData" + chr(92) + ".caxa_userdata.json" in bat:
             raise ValueError("The package launcher still references stable user data.")
 
     digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
