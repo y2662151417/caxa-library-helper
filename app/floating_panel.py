@@ -430,10 +430,24 @@ class Panel:
 
     def _load_profiles(self):
         default=Path(__file__).resolve().parent / 'resources' / '图库模板_示例.json'
-        try: return profiles.read_profiles(self.profile_path if self.profile_path.is_file() else default)
+        try:
+            loaded=profiles.read_profiles(self.profile_path if self.profile_path.is_file() else default)
         except Exception as e:
             messagebox.showwarning('模板异常','自定义模板无效，改用内置模板：'+str(e))
-            return profiles.read_profiles(default)
+            loaded=profiles.read_profiles(default)
+        # Migrate only blank defaults; never overwrite an operator's explicit mapping.
+        for profile in loaded:
+            if profile.get('id') not in ('vertical_weight_takeup','generic_gallery'):
+                continue
+            rules=profile.setdefault('color_rules',[])
+            by_source={r.get('source_color','').casefold():r for r in rules}
+            for source,target in (('红色','中心线层'),('绿色','虚线层')):
+                rule=by_source.get(source.casefold())
+                if rule is None:
+                    rules.append({'source_color':source,'target_layer':target})
+                elif not rule.get('target_layer'):
+                    rule['target_layer']=target
+        return loaded
 
     def _profile_display_name(self,profile_id):
         p=next((x for x in self.profiles if x['id']==profile_id),None)
@@ -921,20 +935,20 @@ class Panel:
     def show_colors(self):
         try:
             p=self.current_profile()
-            lines=['【颜色规则检查】','逐条检查当前模板；未配置的规则不会开放颜色处理按钮。','']
+            lines=['【颜色归层规则检查】','目标图层必须已在 CAXA 图纸中存在，并预先设置好颜色、线型和线宽。','']
             if not p.get('color_rules'):
                 lines.append('当前模板没有颜色规则。')
             for rule in p.get('color_rules',[]):
                 try:
                     ready=workflow_v08.validate_color_rule(p,rule['source_color'])
-                    lines.append(f"✓ {ready['source_color']} → {ready['target_layer']}；{ready['target_linetype']}；比例 {ready['linetype_scale']}；颜色 {ready.get('target_color') or '保持原色'}")
+                    lines.append(f"✓ {ready['source_color']} → {ready['target_layer']}（使用图层预设特性）")
                 except Exception as e:
-                    lines.append(f"! {rule['source_color']}：未就绪（{e}）")
-            lines += ['','【操作方式】','面板使用 CAXA 原生命令 objectset 打开拾取过滤设置，再用 properties 打开选中对象属性面板。对象选择及目标属性修改由你在 CAXA 中完成。','', '【过滤与颜色风险】']
+                    lines.append(f"! {rule['source_color']}：未配置目标图层（{e}）")
+            lines += ['','【操作方式】','先按源颜色过滤并框选机械视图对象，再点击“应用目标图层”；助手通过已校准的图层下拉框设置目标层并读回核对。','', '【注意】']
             lines += ['• '+x for x in workflow_v08.color_filter_execution_cautions(p)]
             lines += ['','该检查不意味着已经修改过 CAXA 图元。']
-            self._text_window('颜色规则预检','\n'.join(lines))
-            self.status.set('颜色规则已逐条检查；可执行的规则可从面板启动原生过滤/属性面板。')
+            self._text_window('颜色归层规则预检','\\n'.join(lines))
+            self.status.set('颜色归层规则已检查；实际修改仍需在 CAXA 中确认选集并复核。')
         except Exception as e:
             messagebox.showwarning('颜色规则检查失败',str(e),parent=self.win)
 
