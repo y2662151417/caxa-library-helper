@@ -193,7 +193,7 @@ class Panel:
         return page
 
     def open_cleanup_window(self):
-        w=self._dialog('cleanup','清理图纸','370x445')
+        w=self._dialog('cleanup','清理图纸','370x500')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
         ttk.Label(w,text='重复线清理',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,3))
@@ -202,7 +202,7 @@ class Panel:
         ttk.Button(w,text='启动删除重复线',command=self.delete_duplicate_lines).pack(fill='x',pady=(3,7),ipady=5)
         ttk.Separator(w).pack(fill='x',pady=5)
         ttk.Label(w,text='颜色归层',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(2,3))
-        ttk.Label(w,text='先按源颜色过滤并框选当前机械视图对象；助手将把当前选集归入预设目标图层。',
+        ttk.Label(w,text='先设置源颜色过滤；助手可按过滤条件自动全选，再把选集的图层、颜色、线型和线宽统一归入预设图层。',
                   wraplength=335,foreground='#555').pack(anchor='w',pady=2)
         self.color_combo=ttk.Combobox(w,state='readonly',textvariable=self.color_rule_var)
         self.color_combo.pack(fill='x',pady=4)
@@ -210,7 +210,8 @@ class Panel:
         ttk.Label(w,textvariable=self.color_rule_detail,wraplength=335,foreground='#24527a').pack(anchor='w',pady=3)
         ttk.Button(w,text='编辑颜色归层规则',command=self.edit_colors).pack(fill='x',pady=3,ipady=3)
         ttk.Button(w,text='打开拾取过滤（选择源颜色）',command=self.open_color_filter).pack(fill='x',pady=3,ipady=3)
-        ttk.Button(w,text='应用目标图层',command=self.open_color_properties).pack(fill='x',pady=3,ipady=4)
+        ttk.Button(w,text='自动选中过滤对象（Ctrl+A）',command=self.select_color_objects).pack(fill='x',pady=3,ipady=4)
+        ttk.Button(w,text='应用目标图层并设为随层',command=self.open_color_properties).pack(fill='x',pady=3,ipady=4)
         ttk.Button(w,text='恢复拾取过滤',command=self.restore_color_filter).pack(fill='x',pady=3,ipady=3)
         self.update_color_rule_choices()
     def open_views_window(self):
@@ -733,18 +734,21 @@ class Panel:
 
 
     def open_calibration_window(self):
-        w=self._dialog('calibration','首次校准','360x360')
+        w=self._dialog('calibration','首次校准','390x500')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
-        ttk.Label(w,text='图层字段只需校准一次：先在 CAXA 选中一条测试线并打开属性面板，点击后 5 秒内将鼠标移到“层”下拉框，不要点击。',
-                  wraplength=320,foreground='#555').pack(anchor='w',pady=(0,8))
+        ttk.Label(w,text='颜色归层首次校准：在 CAXA 主窗口的“常用→特性”面板或颜色图层工具条中，依次把鼠标移到图层、颜色、线型、线宽下拉框上。点击对应按钮后 5 秒内悬停，不要点击。',
+                  wraplength=350,foreground='#555').pack(anchor='w',pady=(0,8))
         for label,action in (
-            ('属性面板图层下拉框','calibrate_layer_field'),
+            ('图层下拉框（目标图层）','calibrate_layer_combo'),
+            ('颜色下拉框（ByLayer）','calibrate_color_combo'),
+            ('线型下拉框（ByLayer）','calibrate_linetype_combo'),
+            ('线宽下拉框（ByLayer）','calibrate_lineweight_combo'),
             ('属性编辑按钮','calibrate_attr_edit'),
             ('标题栏属性填入按钮','calibrate_attr_fill'),
             ('图符名称输入框','calibrate_symbol_name'),
             ('图符入库完成按钮','calibrate_gallery_finish')):
-            ttk.Button(w,text=label,command=lambda a=action:self._begin_calibration(a,w)).pack(fill='x',pady=4,ipady=3)
+            ttk.Button(w,text=label,command=lambda a=action:self._begin_calibration(a,w)).pack(fill='x',pady=3,ipady=2)
 
     def _begin_calibration(self,action,dialog):
         if self._queue_ahk_action(action):
@@ -898,7 +902,24 @@ class Panel:
                 self._color_flow_signature=''
             self._color_flow_source=rule['source_color']
             self._color_flow_profile_hash=workflow_v08.profile_fingerprint(self.current_profile())
-            self.status.set(f"已发送拾取过滤请求：源颜色【{rule['source_color']}】。在 CAXA 对话框中选择颜色条件后，仅框选机械视图区域。")
+            self.status.set(f"已发送拾取过滤请求：源颜色【{rule['source_color']}】。设置颜色条件并关闭对话框后，可自动全选过滤对象；必须检查高亮范围。")
+
+    def select_color_objects(self):
+        if not self.require():return
+        try:
+            rule=self._selected_color_rule()
+            current_job=self._published_job()
+            if not current_job:return
+            if not self._color_flow_signature or current_job.get('job_signature')!=self._color_flow_signature:
+                raise workflow_v08.WorkflowError('请先打开当前源颜色的拾取过滤，并完成颜色条件设置。')
+            if self._color_flow_source.casefold()!=rule['source_color'].casefold():
+                raise workflow_v08.WorkflowError('当前颜色规则与已启动的过滤条件不同，请重新打开过滤设置。')
+            if workflow_v08.profile_fingerprint(self.current_profile())!=self._color_flow_profile_hash:
+                raise workflow_v08.WorkflowError('颜色模板在过滤后发生变化，请重新打开过滤设置。')
+        except Exception as e:
+            messagebox.showwarning('颜色筛选状态不一致',str(e),parent=self.win);return
+        if self._queue_ahk_action('select_filtered_objects'):
+            self.status.set(f"已按当前拾取过滤执行 Ctrl+A（源颜色：{rule['source_color']}）。请检查高亮范围；若包含标题栏、图框、尺寸等对象，按 Esc 取消。")
 
     def open_color_properties(self):
         if not self.require():return
@@ -917,12 +938,12 @@ class Panel:
         if not messagebox.askyesno('应用目标图层',
             f"即将把当前 CAXA 选集归入【{rule['target_layer']}】。\n\n"
             f"源颜色规则：{rule['source_color']}\n"
-            '请确认当前选集只包含本张工作副本的机械视图对象，不包含图框、标题栏、尺寸或其他颜色组。\n'
-            '助手不会自动保存图纸；应用后请检查颜色和线型是否继承目标图层特性。',
+            '请确认当前选集只包含本张工作副本中需要归层的机械视图对象，不包含图框、标题栏、尺寸、文字、块或其他颜色组。\n'
+            '助手将把颜色、线型、线宽设为 ByLayer，再设置目标图层；不自动保存图纸。',
             parent=self.win,default='no'):
             return
         if self._queue_ahk_action('apply_color_layer',target_layer=rule['target_layer']):
-            self.status.set(f"已发送归层请求：{rule['source_color']} → {rule['target_layer']}；控制器正在核验图层字段。")
+            self.status.set(f"已发送归层请求：{rule['source_color']} → {rule['target_layer']}；正在依次设置随层属性并核验。")
 
     def restore_color_filter(self):
         if not self.require():return
@@ -944,7 +965,7 @@ class Panel:
                     lines.append(f"✓ {ready['source_color']} → {ready['target_layer']}（使用图层预设特性）")
                 except Exception as e:
                     lines.append(f"! {rule['source_color']}：未配置目标图层（{e}）")
-            lines += ['','【操作方式】','先按源颜色过滤并框选机械视图对象，再点击“应用目标图层”；助手通过已校准的图层下拉框设置目标层并读回核对。','', '【注意】']
+            lines += ['','【操作方式】','先按源颜色设置拾取过滤，再点击“自动选中过滤对象（Ctrl+A）”；检查高亮范围后，点击“应用目标图层并设为随层”。助手会设置颜色、线型、线宽为 ByLayer，再设置目标图层。','', '【注意】']
             lines += ['• '+x for x in workflow_v08.color_filter_execution_cautions(p)]
             lines += ['','该检查不意味着已经修改过 CAXA 图元。']
             self._text_window('颜色归层规则预检','\\n'.join(lines))
