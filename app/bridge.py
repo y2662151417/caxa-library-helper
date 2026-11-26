@@ -20,7 +20,7 @@ PANEL_ACTIONS = {
     "calibrate_define", "calibrate_attr_edit", "calibrate_attr_fill", "calibrate_symbol_name", "calibrate_gallery_finish",
     "probe_cad_controls", "apply_color_layer", "select_filtered_objects",
     "calibrate_layer_combo", "calibrate_color_combo", "calibrate_linetype_combo", "calibrate_lineweight_combo",
-    "open_layer_manager", "open_all_layers",
+    "open_layer_manager", "open_all_layers", "check_active_drawing",
 }
 
 def request_panel_action(storage: Path, action: str, signature: str, *, target_layer: str | None = None) -> Path:
