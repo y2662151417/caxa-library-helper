@@ -47,6 +47,21 @@ class ReadOnlyControlProbeTests(unittest.TestCase):
         self.assertIn('WinGetControls("ahk_id " hwnd)', body)
         self.assertIn("ControlGetHwnd", body)
         self.assertIn("ControlGetPos", body)
+        for token in (
+            "GetClassNameW",
+            "GetDlgCtrlID",
+            "IsWindowVisible",
+            "IsWindowEnabled",
+            "GetWindowLongPtrW",
+            "GetWindowLongW",
+            "Win32Class:",
+            "ControlID:",
+            "Visible:",
+            "Enabled:",
+            "Style:",
+            "ExStyle:",
+        ):
+            self.assertIn(token, body)
         self.assertIn("controls_all_", body)
         self.assertIn("maxWindows := 20", body)
         self.assertIn("maxControls := 1200", body)
