@@ -23,7 +23,11 @@ DB_PATH = core.storage_dir() / 'progress.sqlite3'
 class App:
     def __init__(self, master):
         self.root=master
-        self.root.title('CAXA 图纸管理工作台 v0.39')
+        try:
+            version=(Path(__file__).with_name('VERSION.txt')).read_text(encoding='ascii').strip()
+        except OSError:
+            version='未知'
+        self.root.title(f'CAXA 图纸管理工作台 v{version}')
         width=min(1240,max(960,master.winfo_screenwidth()-60))
         height=min(820,max(650,master.winfo_screenheight()-95))
         self.root.geometry(f'{width}x{height}')
