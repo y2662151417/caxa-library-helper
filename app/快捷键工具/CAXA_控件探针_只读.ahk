@@ -1,9 +1,8 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
-Persistent
 
 ; Read-only staged control probe for fabricated CAXA drawings only.
-; F2 is intercepted only while the configured CAXA process is foreground.
+; This standalone diagnostic runs once when launched; it registers no hotkeys.
 ; Captures the CAD HWND BEFORE opening its own dialogs: never inspect "A"
 ; after a confirmation box, because it can point to the probe UI instead.
 ; Does not read titles, field text, filenames or CAD objects.
@@ -21,8 +20,14 @@ try cadExe := IniRead(cfgFile, "cad", "process", "")
 if A_Args.Length && A_Args[1] = "--syntax-check"
     ExitApp 0
 
-#HotIf isConfiguredCaxaForeground()
-F2::{
+if !isConfiguredCaxaForeground() {
+    MsgBox("请先在 CAXA 中打开虚构测试图，并确保 CAXA 是当前前台窗口。", "只读诊断", "Icon!")
+    ExitApp 1
+}
+runReadOnlyProbe()
+ExitApp 0
+
+runReadOnlyProbe() {
     try {
         targetHwnd := WinGetID("A")
         targetPID := WinGetPID("ahk_id " targetHwnd)
@@ -96,9 +101,6 @@ F2::{
         MsgBox("诊断停止，未修改任何 CAD 内容：" e.Message, "只读诊断失败", "Icon!")
     }
 }
-
-
-#HotIf
 
 isConfiguredCaxaForeground() {
     global cadExe
