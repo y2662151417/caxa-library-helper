@@ -3,12 +3,21 @@
 Persistent
 
 ; Read-only staged control probe for fabricated CAXA drawings only.
+; F2 is intercepted only while the configured CAXA process is foreground.
 ; Captures the CAD HWND BEFORE opening its own dialogs: never inspect "A"
 ; after a confirmation box, because it can point to the probe UI instead.
 ; Does not read titles, field text, filenames or CAD objects.
 ; Does not click, press keys into CAD, save files, or use network access.
 ; Requires company IT approval for AHK and local diagnostics logs.
-^!+F8::{
+global dataDir := EnvGet("CAXA_HELPER_DATA_DIR")
+if dataDir = ""
+    dataDir := EnvGet("LOCALAPPDATA") "\\CAXA_Library_Helper"
+global cfgFile := dataDir "\\cad_buttons.ini"
+global cadExe := ""
+try cadExe := IniRead(cfgFile, "cad", "process", "")
+
+#HotIf isConfiguredCaxaForeground()
+F2::{
     try {
         targetHwnd := WinGetID("A")
         targetPID := WinGetPID("ahk_id " targetHwnd)
@@ -81,4 +90,16 @@ Persistent
     } catch as e {
         MsgBox("诊断停止，未修改任何 CAD 内容：" e.Message, "只读诊断失败", "Icon!")
     }
+}
+
+
+#HotIf
+
+isConfiguredCaxaForeground() {
+    global cadExe
+    if cadExe = ""
+        return false
+    try return StrLower(WinGetProcessName("A")) = StrLower(cadExe)
+    catch
+        return false
 }
