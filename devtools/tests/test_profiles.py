@@ -39,6 +39,15 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual([r['source_color'] for r in plan],['红色','绿色'])
         self.assertEqual(plan[0]['target_layer'],'中心线层')
         self.assertEqual(plan[1]['target_layer'],'虚线层')
+        self.assertEqual(plan[0]['target_properties'],{
+            'layer':'中心线层','color':'ByLayer','linetype':'ByLayer','lineweight':'ByLayer'})
+        self.assertIn('Ctrl+A',plan[0]['selection_method'])
+    def test_color_rule_instruction_requires_selection_review(self):
+        rule=workflow_v08.validate_color_rule(self.p,'红色')
+        instruction=workflow_v08.color_rule_instruction(rule)
+        self.assertIn('Ctrl+A',instruction)
+        self.assertIn('按 Esc 取消',instruction)
+        self.assertIn('ByLayer',instruction)
     def test_more_than_six_rejected(self):
         p=copy.deepcopy(self.p);p['view_plan'].append({'view':'剖视图','kind':'带尺寸'})
         with self.assertRaises(profiles.ProfileError):profiles.validate(p)
