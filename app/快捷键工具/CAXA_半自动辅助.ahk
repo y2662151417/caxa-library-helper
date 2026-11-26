@@ -1468,9 +1468,8 @@ statusInfo(*) {
         value := IniRead(cfgFile, slot, "control", "")
         description .= "`n" title "：" (value != "" ? "已标定" : "未标定")
     }
-    description .= "`n单键：F3填入图符名称；F4全部图层打开；F5定义图符；F6开始/下一视图；F7上一视图；F8图层设置；F9复制名称；F10属性编辑；F11填入标题栏；F12状态。"
-    description .= "`nPause：暂停/恢复助手快捷键；暂停后 F3-F12 交还给 CAXA。"
-    description .= "`n图层：F8打开 layer 设置单层开关；F4执行 layon 全开（不解冻、不解锁）。"
+    description .= "`n操作方式：日常功能通过 CAXA 制作助手悬浮面板按钮执行；本版本不注册全局快捷键，不占用 CAXA 原生按键。"
+    description .= "`n图层：在悬浮面板点击“打开图层设置”管理单层；点击“全部图层打开”执行 layon（不解冻、不解锁）。"
     description .= "`n删除重线：悬浮面板按钮（原生命令；人工选取/确认）"
     description .= "`n当前任务：" (FileExist(jobFile) ? "已发布，使用前需核对" : "未发布")
     global guideItems, guideIndex
@@ -1528,7 +1527,7 @@ calibrateSymbolNameField(*) {
         IniWrite ctrlClass, cfgFile, "symbolNameField", "control"
         IniWrite targetClass, cfgFile, "symbolNameField", "class"
         IniWrite title, cfgFile, "symbolNameField", "title"
-        autoTip("图符名称输入框已标定；可用 Ctrl+Alt+F8 尝试填写")
+        autoTip("图符名称输入框已标定；可在悬浮面板的“属性与入库”中填写正式名称")
     } catch as e {
         MsgBox "图符名称输入框标定失败：" e.Message
     }
@@ -1944,9 +1943,9 @@ CaptureParamGrid(token,fileName) {
 
 
 ; ---------------- Single-key shortcuts (v0.42.15) -------------------------
-; F4/F8 intentionally take precedence over CAXA's native bindings while this
-; helper is active. Pause disables all helper function-key bindings and returns
-; the keys to CAXA. Text-entry controls and non-target windows are excluded.
+; The controller does not register global or CAD-level hotkeys.
+; Routine operations are launched from the floating panel through the
+; allow-listed local action bridge; CAXA's native key bindings remain untouched.
 
 isCaxaTaskProcessActive() {
     global cadExe, jobFile
@@ -1967,67 +1966,6 @@ isCaxaTaskProcessActive() {
     }
 }
 
-isCaxaDrawingWindowActive() {
-    global isPaused, jobFile
-    if isPaused || !isCaxaTaskProcessActive()
-        return false
-    try {
-        workFile := IniRead(jobFile, "active", "working_file", "")
-        mainHwnd := findUniqueWorkWindow(workFile)
-        if !mainHwnd || WinGetID("A") != mainHwnd
-            return false
-        focused := ControlGetFocus("A")
-        if focused != "" {
-            focusedHwnd := ControlGetHwnd(focused, "A")
-            if !focusedHwnd
-                return false
-            focusedClass := WinGetClass("ahk_id " focusedHwnd)
-            ; Do not steal keys from edit fields, command text, list controls,
-            ; ribbon buttons or dialogs. Unknown custom canvas controls are allowed.
-            if RegExMatch(focusedClass, "i)^(Edit|ComboBox|RichEdit.*|Scintilla|ListBox|Button|SysListView32|SysTreeView32)$")
-                return false
-        }
-        return true
-    } catch {
-        return false
-    }
-}
-
-isCaxaTaskHotkeysActive() {
-    global isPaused
-    return !isPaused && isCaxaTaskProcessActive()
-}
-
-openLayerManagerShortcut(*) {
-    global jobFile
-    if !FileExist(jobFile) {
-        autoTip("请先在悬浮助手中选择并打开当前工作副本")
-        return
-    }
-    signature := IniRead(jobFile, "active", "job_signature", "")
-    runPublishedNativeCommand(signature, "layer", "打开图层设置")
-}
-
-openAllLayersShortcut(*) {
-    global jobFile
-    if !FileExist(jobFile) {
-        autoTip("请先在悬浮助手中选择并打开当前工作副本")
-        return
-    }
-    signature := IniRead(jobFile, "active", "job_signature", "")
-    runPublishedNativeCommand(signature, "layon", "全部打开图层")
-}
-
-startSymbolDefinitionShortcut(*) {
-    global jobFile
-    if !FileExist(jobFile) {
-        autoTip("请先在悬浮助手中选择并打开当前工作副本")
-        return
-    }
-    signature := IniRead(jobFile, "active", "job_signature", "")
-    startSymbolDefinition(signature)
-}
-
 startOrNextGuideShortcut(*) {
     global guideItems
     if guideItems.Length = 0
@@ -2036,27 +1974,3 @@ startOrNextGuideShortcut(*) {
         nextGuide()
 }
 
-toggleAutomationPause(*) {
-    global isPaused
-    isPaused := !isPaused
-    autoTip(isPaused ? "助手快捷键已暂停；F3-F12 已交还给 CAXA。按 Pause 恢复" : "助手快捷键已恢复")
-}
-
-#HotIf isCaxaTaskHotkeysActive()
-F3::fillSymbolNameField()
-F9::copySuggestedName()
-F10::safeClick("attrEdit", "属性编辑")
-F11::safeClick("attrFill", "填入当前标题栏属性值")
-F12::statusInfo()
-#HotIf
-
-#HotIf isCaxaDrawingWindowActive()
-F4::openAllLayersShortcut()
-F5::startSymbolDefinitionShortcut()
-F6::startOrNextGuideShortcut()
-F7::previousGuide()
-F8::openLayerManagerShortcut()
-#HotIf
-
-; Global emergency toggle: even when paused, this single key can restore the helper.
-Pause::toggleAutomationPause()
