@@ -461,7 +461,7 @@ PanelActionPoll() {
         } else if action = "duplicate_line_cleanup" {
             startDuplicateLineCleanup(signature)
         } else if action = "fill_symbol_name" {
-            fillSymbolNameField(true, signature)
+            autoTip("正式名称由操作者手动复制和粘贴；助手不会自动填写")
         } else if action = "open_pick_filter" {
             runPublishedNativeCommand(signature, "objectset", "打开拾取过滤设置")
         } else if action = "open_properties" {
@@ -493,42 +493,7 @@ PanelActionPoll() {
             if activateCalibratedWindowForJob("attrFill", signature)
                 safeClick("attrFill", "填入当前标题栏属性值")
         } else if action = "finish_gallery_insert" {
-            if guideSignature != signature || !guideMainHwnd || !WinExist("ahk_id " guideMainHwnd) {
-                autoTip("当前图符定义任务与工作副本不一致；拒绝完成入库")
-                return
-            }
-            workFile := IniRead(jobFile, "active", "working_file", "")
-            mainHwnd := findUniqueWorkWindow(workFile)
-            if !mainHwnd || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
-                autoTip("未找到当前任务对应的唯一工作副本；拒绝完成入库")
-                return
-            }
-            if IniRead(jobFile, "active", "block_name_status", "") != "已匹配"
-              || IniRead(jobFile, "active", "block_name", "") = "" {
-                autoTip("正式块名称未唯一匹配；拒绝完成入库")
-                return
-            }
-            expectedName := IniRead(jobFile, "active", "block_name", "")
-            nameControl := IniRead(cfgFile, "symbolNameField", "control", "")
-            nameWindow := findUniqueCalibratedWindow("symbolNameField")
-            finishWindow := findUniqueCalibratedWindow("galleryFinish")
-            if nameControl = "" || !nameWindow || !finishWindow || nameWindow != finishWindow
-              || WinGetPID("ahk_id " nameWindow) != WinGetPID("ahk_id " mainHwnd) {
-                autoTip("图符名称框与完成按钮未绑定到当前工作副本的同一入库窗口；拒绝提交")
-                return
-            }
-            try {
-                actualName := ControlGetText(nameControl, "ahk_id " nameWindow)
-            } catch {
-                autoTip("无法读取图符名称框；拒绝提交，请人工核对")
-                return
-            }
-            if actualName != expectedName {
-                autoTip("入库名称与正式块名称不一致；拒绝提交")
-                return
-            }
-            if activateCalibratedWindowForJob("galleryFinish", signature)
-                safeClick("galleryFinish", "完成入库")
+            autoTip("最终图符入库由操作者在 CAXA 中完成；助手不会点击完成按钮、提交或保存")
         } else if action = "calibrate_define" {
             beginTimedCalibration(signature, "define", "定义图符")
         } else if action = "calibrate_attr_edit" {
@@ -638,7 +603,7 @@ startSymbolDefinition(expectedSignature) {
     galleryFillPendingSignature := sig
     galleryFillPendingSince := A_TickCount
     galleryDialogNoticeShown := false
-    autoTip("已启动 CAXA Symdef（" countText "项）。在 CAXA 中依次框选每组视图并指定各自基点；CAXA 会自动衔接下一组，不必返回助手点击“下一视图”。最后一组完成后自动打开图符入库窗口，已校准的正式名称框会自动填名")
+    autoTip("已启动 CAXA Symdef（" countText "项）。在 CAXA 中依次框选每组视图并指定各自基点；请人工完成名称、属性和图库类别核对。助手不会自动填写、提交、点击入库或保存。")
     return true
 }
 
@@ -869,6 +834,8 @@ probeCaxaControls(expectedSignature) {
 
 ; When Symdef opens the gallery dialog, fill the exact mapped name once if the
 ; name field was calibrated. No category selection, attribute submission or final click occurs here.
+; When Symdef opens the gallery dialog, notify the operator only.
+; The helper does not fill attributes, submit, finish insertion, or save the EXB.
 GalleryDialogPoll() {
     global galleryFillPendingSignature, galleryFillPendingSince, galleryDialogNoticeShown, jobFile, cadExe
     signature := galleryFillPendingSignature
@@ -887,17 +854,6 @@ GalleryDialogPoll() {
             galleryDialogNoticeShown := false
             return
         }
-        blockStatus := IniRead(jobFile, "active", "block_name_status", "未导入块名称清单")
-        blockName := IniRead(jobFile, "active", "block_name", "")
-        if blockStatus != "已匹配" || blockName = "" {
-            if !galleryDialogNoticeShown {
-                autoTip("图符入库窗口将使用人工填写名称；正式块名称尚未按完整图号匹配")
-                galleryDialogNoticeShown := true
-            }
-            galleryFillPendingSignature := ""
-            galleryFillPendingSince := 0
-            return
-        }
         workFile := IniRead(jobFile, "active", "working_file", "")
         mainHwnd := findUniqueWorkWindow(workFile)
         if !mainHwnd
@@ -906,16 +862,6 @@ GalleryDialogPoll() {
         dialogHwnd := findUniqueCalibrationDialog(pid, mainHwnd, "图符入库")
         if !dialogHwnd
             return
-        nameWindow := findUniqueCalibratedWindow("symbolNameField")
-        if !nameWindow || nameWindow != dialogHwnd {
-            if !galleryDialogNoticeShown {
-                autoTip("已进入图符入库；名称框尚未校准。请手动填写，或在设置中完成一次名称框校准")
-                galleryDialogNoticeShown := true
-            }
-            return
-        }
-        if WinGetPID("ahk_id " nameWindow) != pid
-            return
         if !verifyBeforeAction(signature) {
             galleryFillPendingSignature := ""
             galleryFillPendingSince := 0
@@ -923,14 +869,16 @@ GalleryDialogPoll() {
         }
         galleryFillPendingSignature := ""
         galleryFillPendingSince := 0
-        galleryDialogNoticeShown := false
-        fillSymbolNameField(true, signature)
+        galleryDialogNoticeShown := true
+        autoTip("已打开图符入库窗口。请人工填写正式名称、核对属性和图库类别；助手不会自动填写、提交或保存。")
     } catch as e {
         galleryFillPendingSignature := ""
         galleryFillPendingSince := 0
-        autoTip("图符入库名称自动填写未执行：" e.Message "；请手动核对")
+        autoTip("图符入库窗口状态无法核验；请人工检查：" e.Message)
     }
 }
+
+
 
 ; Activate the exact work-copy window for panel-driven guide actions.
 activateGuideMainWindow(expectedSignature) {
@@ -1441,7 +1389,7 @@ fillSymbolNameField(fromPanel := false, expectedSignature := "") {
 }
 
 ^!+7::calibrateSymbolNameField()
-^!F8::fillSymbolNameField()
+; Automatic name-field filling is disabled; copy the verified name from the assistant and paste it manually.
 
 
 
