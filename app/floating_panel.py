@@ -378,8 +378,10 @@ class Panel:
                    command=self.open_views_window).pack(fill='x',pady=4,ipady=4)
         ttk.Separator(w).pack(fill='x',pady=7)
         ttk.Button(w,text='首次校准其他 CAD 控件',command=self.open_calibration_window).pack(fill='x',pady=4,ipady=4)
-        ttk.Label(w,text='颜色、图层和线型规则由软件按已确认的公司标准维护。尚未核实的映射不会自动执行，也不需要你逐项配置。',
-                  wraplength=315,foreground='#666').pack(anchor='w',pady=7)
+        ttk.Label(w,text='颜色映射从配置 Excel 读取。对象颜色、线型、线宽均按 ByLayer；线型比例为 1。',
+                  wraplength=315,foreground='#666').pack(anchor='w',pady=5)
+        ttk.Button(w,text='查看颜色映射规则',command=self.show_colors).pack(fill='x',pady=3)
+        ttk.Button(w,text='打开助手数据文件夹',command=self.open_data_folder).pack(fill='x',pady=3)
     def _enforce_topmost(self):
         if self._closed:return
         try:
@@ -933,8 +935,8 @@ class Panel:
         except Exception as e:
             messagebox.showwarning('颜色处理状态不一致',str(e),parent=self.win);return
         confirm=(
-            f"颜色规则：{rule['source_color']} → {rule['target_layer']}\\n"
-            "对象颜色：ByLayer｜对象线型：ByLayer｜线型比例：1｜线宽：ByLayer\\n\\n"
+            f"颜色规则：{rule['source_color']} → {rule['target_layer']}\n"
+            "对象颜色：ByLayer｜对象线型：ByLayer｜线型比例：1｜线宽：ByLayer\n\n"
             "请确认当前 CAXA 选集仅包含本组机械视图对象，不含图框、标题栏、尺寸及其他颜色组。"
         )
         if not messagebox.askyesno('核对当前选集',confirm,parent=self.win,default='no'):
@@ -953,23 +955,36 @@ class Panel:
 
     def show_colors(self):
         try:
-            p=self.current_profile()
-            lines=['【颜色规则检查】','逐条检查当前模板；未配置的规则不会开放颜色处理按钮。','']
-            if not p.get('color_rules'):
-                lines.append('当前模板没有颜色规则。')
-            for rule in p.get('color_rules',[]):
-                try:
-                    ready=workflow_v08.validate_color_rule(p,rule['source_color'])
-                    lines.append(f"✓ {ready['source_color']} → {ready['target_layer']}；{ready['target_linetype']}；比例 {ready['linetype_scale']}；颜色 {ready.get('target_color') or '保持原色'}")
-                except Exception as e:
-                    lines.append(f"! {rule['source_color']}：未就绪（{e}）")
-            lines += ['','【操作方式】','面板使用 CAXA 原生命令 objectset 打开拾取过滤设置，再用 properties 打开选中对象属性面板。对象选择及目标属性修改由你在 CAXA 中完成。','', '【过滤与颜色风险】']
-            lines += ['• '+x for x in workflow_v08.color_filter_execution_cautions(p)]
-            lines += ['','该检查不意味着已经修改过 CAXA 图元。']
-            self._text_window('颜色规则预检','\n'.join(lines))
-            self.status.set('颜色规则已逐条检查；可执行的规则可从面板启动原生过滤/属性面板。')
+            rules=core.get_cad_color_rules(self.app.c)
+            lines=['【当前 Excel 颜色映射】','以下规则保存在本机数据库；重新导入配置 Excel 时整体更新。','']
+            for rule in rules:
+                lines.append(
+                    f"{rule['source_color']} → {rule['target_layer']}；"
+                    f"颜色 {rule['target_color']}；线型 {rule['target_linetype']}；"
+                    f"比例 {rule['linetype_scale']:g}；线宽 {rule['target_lineweight']}"
+                )
+            lines += [
+                '',
+                '【执行说明】',
+                '拾取筛选使用 CAXA 原生命令 objectset；当前分支会读取拾取过滤对话框控件，供后续精确校准。',
+                '一键设置特性按钮目前打开原生特性面板并生成只读诊断，尚未自动修改图元属性。',
+                '在 CAXA 2024 实机确认控件映射前，不会模拟坐标点击或猜测控件顺序。',
+            ]
+            self._text_window('颜色规则检查','\n'.join(lines))
         except Exception as e:
             messagebox.showwarning('颜色规则检查失败',str(e),parent=self.win)
+
+    def open_data_folder(self):
+        try:
+            folder=core.storage_dir()
+            folder.mkdir(parents=True,exist_ok=True)
+            if sys.platform=='win32':
+                os.startfile(str(folder))
+            else:
+                messagebox.showinfo('助手数据目录',str(folder),parent=self.win)
+        except Exception as e:
+            messagebox.showerror('无法打开数据目录',str(e),parent=self.win)
+
 
     def _save_profiles(self):
         for p in self.profiles: profiles.validate(p)
