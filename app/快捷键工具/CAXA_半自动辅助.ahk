@@ -264,54 +264,55 @@ copySuggestedName(*) {
         return
     try {
         if !FileExist(jobFile) {
-            MsgBox "尚无活动图纸。请在图库工作台中选择图纸，导入并匹配正式块名称清单后发布任务。", "缺少任务", "Icon!"
+            MsgBox "尚无活动图纸。请在图库工作台中选择图纸并导入正式块名称 Excel。", "缺少任务", "Icon!"
             return
         }
         code := IniRead(jobFile, "active", "code", "")
         filename := IniRead(jobFile, "active", "filename", "")
+        workFile := IniRead(jobFile, "active", "working_file", "")
         blockName := IniRead(jobFile, "active", "block_name", "")
         blockStatus := IniRead(jobFile, "active", "block_name_status", "未导入块名称清单")
-        suggested := IniRead(jobFile, "active", "suggested_name", "")
-        if blockStatus = "已匹配" && blockName != "" {
-            proposed := blockName
-            nameLabel := "正式图符名称"
-        } else if blockStatus = "未导入块名称清单" && suggested != "" {
-            proposed := suggested
-            nameLabel := "本地建议名称（尚未导入正式块名称清单）"
-        } else {
+        if blockStatus != "已匹配" || blockName = "" {
             MsgBox(
-                "当前图号没有唯一匹配的正式块名称。`n图号：" . code . "`n匹配状态：" . blockStatus
-                . "`n`n请先在工作台导入并核对块名称清单；不会用相似图号猜测。",
-                "块名称未匹配",
+                "当前图号没有唯一匹配的正式块名称。" . Chr(10) . "图号：" . code . Chr(10) . "匹配状态：" . blockStatus
+                . Chr(10) . Chr(10) . "请核对 Excel 中的图号和正式块名称；不会使用本地建议名称或相似图号代替。",
+                "正式块名称未匹配",
                 "Icon!"
             )
             return
         }
-        if code = "" || proposed = "" {
+        if code = "" || filename = "" || workFile = "" {
             MsgBox "当前图纸信息不完整，已停止复制。", "缺少名称", "Icon!"
             return
         }
         originalTitle := WinGetTitle("A")
+        if !titleHasExactWorkFile(originalTitle, workFile) {
+            autoTip("当前 CAXA 图纸与助手选中的工作副本不一致；拒绝复制")
+            return
+        }
         caption := (
-            nameLabel . "：`n" . proposed . "`n`n工作台图纸：" . filename
-            . "`n当前 CAD 窗口：" . WinGetTitle("A")
-            . "`n`n确认工作台选中的图纸与 CAD 中打开的图纸一致？"
+            "正式图符名称：" . Chr(10) . blockName . Chr(10) . Chr(10) . "工作台图纸：" . filename
+            . Chr(10) . "当前 CAD 窗口：" . originalTitle
+            . Chr(10) . Chr(10) . "确认工作台选中的图纸与 CAD 中打开的图纸一致？"
         )
         if MsgBox(caption, "防串图确认", "YesNo Icon? Default2") != "Yes"
             return
         sig := IniRead(jobFile, "active", "job_signature", "")
         if !verifyBeforeAction(sig)
             return
-        if !cadOk(true) || WinGetTitle("A") != originalTitle {
-            autoTip("校验期间窗口发生变化，已取消复制")
+        if !cadOk(true) || WinGetTitle("A") != originalTitle
+          || !titleHasExactWorkFile(WinGetTitle("A"), workFile) {
+            autoTip("校验期间 CAXA 图纸窗口发生变化，已取消复制")
             return
         }
-        A_Clipboard := proposed
-        autoTip("已复制" nameLabel "；请在【图符名称】字段核对后粘贴")
+        A_Clipboard := blockName
+        autoTip("已复制正式图符名称；请在【图符名称】字段人工核对后粘贴")
     } catch as e {
         MsgBox "复制失败：" e.Message
     }
 }
+
+
 
 jobWindowMatches(hwnd, workFile) {
     ; This gate is usable before the six-view guide starts. It binds a command
