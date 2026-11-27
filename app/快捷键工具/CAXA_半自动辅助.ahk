@@ -1421,7 +1421,7 @@ FinishPropertyComboCalibration(mainHwnd, expectedSignature, slot, label, title, 
             autoTip("校准期间图纸或窗口发生变化；未保存控件")
             return false
         }
-        MouseGetPos(&x, &y, &hoverHwnd, &controlName)
+        MouseGetPos(&x, &y, &hoverHwnd, &controlName, 2)
         if hoverHwnd != mainHwnd || controlName = "" {
             autoTip("鼠标未停在 CAXA 属性下拉框上；未保存校准")
             return false
