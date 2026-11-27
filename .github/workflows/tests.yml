@@ -25,3 +25,33 @@ jobs:
         run: python -m compileall -q app runtime devtools
       - name: Run unit tests
         run: python -m unittest discover -s devtools/tests -v
+
+  ahk-syntax:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Download and verify portable AutoHotkey v2
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:TEMP "AutoHotkey_2.0.32.zip"
+          $extract = Join-Path $env:TEMP "AutoHotkey_2.0.32"
+          Invoke-WebRequest -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.32/AutoHotkey_2.0.32.zip" -OutFile $archive
+          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = "384a4c125e8d7b5b77ddbd5a593ec761d3e9e96e97a95931cf56e9a077fda114"
+          if ($actual -ne $expected) { throw "AutoHotkey archive SHA-256 mismatch: $actual" }
+          Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+          $exe = Join-Path $extract "AutoHotkey64.exe"
+          if (!(Test-Path -LiteralPath $exe)) { throw "Verified AutoHotkey64.exe not found in official archive" }
+          $scripts = @(
+            (Join-Path $env:GITHUB_WORKSPACE "app\快捷键工具\CAXA_半自动辅助.ahk"),
+            (Join-Path $env:GITHUB_WORKSPACE "app\快捷键工具\CAXA_控件探针_只读.ahk")
+          )
+          foreach ($script in $scripts) {
+            $stdout = Join-Path $env:TEMP (([IO.Path]::GetFileName($script)) + ".stdout.txt")
+            $stderr = Join-Path $env:TEMP (([IO.Path]::GetFileName($script)) + ".stderr.txt")
+            $process = Start-Process -FilePath $exe -ArgumentList @($script, "--syntax-check") -Wait -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            if (Test-Path -LiteralPath $stdout) { Get-Content -LiteralPath $stdout }
+            if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr }
+            if ($process.ExitCode -ne 0) { throw "AutoHotkey v2 parse check failed for $script with exit code $($process.ExitCode)" }
+          }
