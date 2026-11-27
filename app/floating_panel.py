@@ -534,7 +534,8 @@ class Panel:
             messagebox.showwarning('当前任务不可用',str(e),parent=self.win)
             return None
 
-    def _queue_ahk_action(self,action,confirm_text=None,source_color=None,target_layer=None):
+    def _queue_ahk_action(self,action,confirm_text=None,source_color=None,target_layer=None,
+                          target_color=None,target_linetype=None,linetype_scale=None,target_lineweight=None):
         job=self._published_job()
         if not job:return False
         if confirm_text and not messagebox.askyesno('确认 CAXA 操作',confirm_text.format(
@@ -542,7 +543,9 @@ class Panel:
             return False
         try:
             bridge.request_panel_action(core.storage_dir(),action,job['job_signature'],
-                                        source_color=source_color,target_layer=target_layer)
+                source_color=source_color,target_layer=target_layer,target_color=target_color,
+                target_linetype=target_linetype,linetype_scale=linetype_scale,
+                target_lineweight=target_lineweight)
             self.status.set('操作请求已发送；正在核验当前 CAXA 图纸。')
             return True
         except Exception as e:
@@ -942,7 +945,9 @@ class Panel:
             target_layer=str(rule.get('target_layer') or '').strip()
             if not target_layer:
                 raise workflow_v08.WorkflowError(f'Excel 中“{rule["source_color"]}”没有配置目标图层。')
-            if self._queue_ahk_action('apply_color_layer',target_layer=target_layer):
+            if self._queue_ahk_action('apply_color_layer',target_layer=target_layer,
+                    target_color=rule['target_color'],target_linetype=rule['target_linetype'],
+                    linetype_scale=rule['linetype_scale'],target_lineweight=rule['target_lineweight']):
                 self.status.set(f"已执行归层请求：{rule['source_color']} → {target_layer}；请查看左侧特性栏核对，助手不会自动保存。")
         except Exception as e:
             self.status.set(str(e))
