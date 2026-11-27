@@ -17,11 +17,11 @@ class Panel:
         self.win.title('CAXA 制作控制台')
         sw=max(1024,self.win.winfo_screenwidth())
         sh=max(720,self.win.winfo_screenheight())
-        self._expanded_geometry=f'310x230+{max(10,sw-330)}+{max(35,min(90,sh-280))}'
+        self._expanded_geometry=f'320x265+{max(10,sw-340)}+{max(35,min(90,sh-315))}'
         self._collapsed_geometry=f'270x58+{max(10,sw-290)}+{max(35,min(90,sh-110))}'
         self.win.geometry(self._expanded_geometry)
-        self.win.minsize(285,210)
-        self.win.maxsize(340,270)
+        self.win.minsize(300,245)
+        self.win.maxsize(340,285)
         self.win.resizable(False,False)
         self.win.attributes('-topmost',True)
         self.win.protocol('WM_DELETE_WINDOW',self.hide_panel)
@@ -755,22 +755,31 @@ class Panel:
 
 
     def open_calibration_window(self):
-        w=self._dialog('calibration','首次校准','360x360')
+        w=self._dialog('calibration','首次校准','370x500')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
-        ttk.Label(w,text='定义图符不需要校准。仅在属性控件确实需要自动化时，才做一次对应校准。',
-                  wraplength=320,foreground='#555').pack(anchor='w',pady=(0,8))
+        ttk.Label(w,text='属性自动设置只需校准一次。先切换 CAXA 的“常用”选项卡，再点击对应按钮；鼠标移到目标下拉框上停留 8 秒，不要点击。',
+                  wraplength=335,foreground='#555').pack(anchor='w',pady=(0,8))
+        ttk.Label(w,text='一键设置特性（必需）',font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(2,3))
+        for label,action in (
+            ('校准图层下拉框','calibrate_layer_combo'),
+            ('校准颜色下拉框','calibrate_color_combo'),
+            ('校准线型下拉框','calibrate_linetype_combo'),
+            ('校准线宽下拉框','calibrate_lineweight_combo')):
+            ttk.Button(w,text=label,command=lambda a=action:self._begin_calibration(a,w,9000)).pack(fill='x',pady=2,ipady=2)
+        ttk.Separator(w).pack(fill='x',pady=7)
+        ttk.Label(w,text='其他低频控件',font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(2,3))
         for label,action in (
             ('属性编辑按钮','calibrate_attr_edit'),
             ('标题栏属性填入按钮','calibrate_attr_fill'),
             ('图符名称输入框','calibrate_symbol_name'),
             ('图符入库完成按钮','calibrate_gallery_finish')):
-            ttk.Button(w,text=label,command=lambda a=action:self._begin_calibration(a,w)).pack(fill='x',pady=4,ipady=3)
+            ttk.Button(w,text=label,command=lambda a=action:self._begin_calibration(a,w)).pack(fill='x',pady=2,ipady=2)
 
-    def _begin_calibration(self,action,dialog):
+    def _begin_calibration(self,action,dialog,restore_ms=7200):
         if self._queue_ahk_action(action):
             self.win.withdraw()
-            self._schedule(7200,self._restore_after_calibration)
+            self._schedule(restore_ms,self._restore_after_calibration)
     def _restore_after_calibration(self):
         try:
             if self.win.winfo_exists():
