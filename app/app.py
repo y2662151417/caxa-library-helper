@@ -443,22 +443,23 @@ class App:
         except Exception as e:messagebox.showerror('名单导入失败',str(e))
 
     def import_block_names(self):
-        filename=filedialog.askopenfilename(title='导入正式块名称 Excel（.xlsx）',
+        filename=filedialog.askopenfilename(title='导入 CAXA 配置 Excel（图纸名称 + 颜色规则）',
             filetypes=[('Excel 工作簿','*.xlsx')])
         if not filename:return
         try:
-            n=core.import_block_names_xlsx(self.c,filename)
+            result=core.import_caxa_workbook_xlsx(self.c,filename)
             rows=core.block_name_summary(self.c)
             found=sum(x['match_status']=='已匹配' for x in rows)
             missing=[x for x in rows if x['match_status']!='已匹配']
+            detail='\n'.join(f"{x['code']}：{x['match_status']}" for x in missing[:12])
+            message=(f"导入图纸映射 {result['drawing_count']} 项，按图号和 Excel 文件名准确匹配 {found}/{result['drawing_count']} 项。"
+                     f"\n导入颜色规则 {result['color_rule_count']} 项。")
+            if detail:
+                message+='\n\n未匹配项（最多显示12项）：\n'+detail
+            message+='\n\n正式块名称与颜色规则已保存在本机数据库；不需要每次启动助手都重新导入。'
+            messagebox.showinfo('CAXA 配置导入完成',message,parent=self.root)
             self.refresh()
             self.sync_job()
-            detail='\n'.join(f"{x['code']}：{x['match_status']}" for x in missing[:12])
-            message=f'从 Excel 导入 {n} 个正式块名称，按完整图号准确匹配 {found}/{n} 项。'
-            if detail:
-                message+='\\n\\n未匹配项（最多显示12项）：\\n'+detail
-            message+='\\n\\n只有图号唯一匹配且当前 CAXA 工作副本核验通过时，才允许复制正式块名称。'
-            messagebox.showinfo('Excel 块名称导入完成',message,parent=self.root)
         except Exception as e:
             messagebox.showerror('Excel 导入失败',str(e),parent=self.root)
 
