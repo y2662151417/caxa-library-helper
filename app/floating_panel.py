@@ -586,7 +586,7 @@ class Panel:
         if self._pid_alive(pid):
             build=ahk_runtime.read_controller_build(core.storage_dir())
             if build==ahk_runtime.CONTROLLER_BUILD_ID:
-                self.status.set('CAXA 控制器已连接；可以直接使用上方操作。')
+                self.status.set(f'CAXA 控制器已连接（{build}）；可以直接使用上方操作。')
             else:
                 self.status.set('检测到旧版 CAXA 控制器。请在系统托盘中右键旧版 H 图标选择 Exit，然后重新启动制作助手。')
             return
@@ -610,7 +610,7 @@ class Panel:
         if self._pid_alive(pid):
             build=ahk_runtime.read_controller_build(core.storage_dir())
             if build==ahk_runtime.CONTROLLER_BUILD_ID:
-                self.status.set(f'CAXA 控制器已连接（PID {pid}）；可以开始操作。')
+                self.status.set(f'CAXA 控制器已连接（{build}；PID {pid}）；可以开始操作。')
             else:
                 self.status.set('控制器版本不匹配；请退出系统托盘中的旧版 H 图标，再重新启动制作助手。')
             return
