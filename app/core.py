@@ -6,9 +6,12 @@ import datetime as dt
 import io
 import os
 from pathlib import Path
+import posixpath
 import re
 import shutil
 import sqlite3
+import zipfile
+import xml.etree.ElementTree as ET
 
 VIEW_TYPES = ('主视图', '俯视图', '左视图', '右视图', '剖视图', '局部视图')
 KINDS = ('无尺寸', '带尺寸')
@@ -447,61 +450,229 @@ def manifest_summary(c):
     return c.execute('SELECT * FROM manifest ORDER BY id').fetchall()
 
 
-def import_block_names(c, content):
-    """Import actual CAXA symbol names and bind them to drawings by exact code.
+def _validate_block_name_items(items):
+    normalized = []
+    for raw_code, raw_name in items:
+        code = str(raw_code).strip()
+        block_name = str(raw_name).strip()
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*', code):
+            raise ValueError(f'图号格式不正确：{code}')
+        if not block_name or BAD_FILE_CHARS.search(block_name) or block_name.endswith(('.', ' ')):
+            raise ValueError(f'正式块名称为空或包含不允许的字符：{block_name}')
+        expected_prefix = code + '_'
+        if not block_name.casefold().startswith(expected_prefix.casefold()):
+            raise ValueError(f'正式块名称必须以对应图号加下划线开头：{code} / {block_name}')
+        normalized.append((code, block_name))
 
-    Accepted formats:
-      - one column: CRB01D2084_垂直重锤拉紧装置_B500_08轴_D500
-      - two columns: drawing_code, block_name
-    A partial/shared prefix is never used for matching.
-    """
-    reader=csv.reader(io.StringIO(content))
-    items=[]
+    seen_codes = {}
+    seen_names = {}
+    for code, block_name in normalized:
+        code_key = code.casefold()
+        name_key = block_name.casefold()
+        if code_key in seen_codes:
+            raise ValueError(f'图号重复：{code}。一个图号只能对应一个正式块名称，请核对 Excel。')
+        if name_key in seen_names:
+            raise ValueError(f'正式块名称重复：{block_name}。请核对 Excel。')
+        seen_codes[code_key] = block_name
+        seen_names[name_key] = code
+    if not normalized:
+        raise ValueError('没有读取到有效的正式块名称')
+    return normalized
+
+
+def _store_block_name_items(c, items, source_label='正式块名称清单'):
+    items = _validate_block_name_items(items)
+    with c:
+        c.execute('DELETE FROM block_name_map')
+        for code, block_name in items:
+            c.execute('''INSERT INTO block_name_map(code,block_name,imported_at)
+                         VALUES(?,?,?)''', (code, block_name, now()))
+        resolve_block_names(c)
+        add_event(c, '导入正式块名称', '', f'{source_label}；条目数 {len(items)}')
+    return len(items)
+
+
+def _xlsx_column_number(reference):
+    match = re.match(r'([A-Z]+)', str(reference).upper())
+    if not match:
+        return 0
+    number = 0
+    for char in match.group(1):
+        number = number * 26 + ord(char) - 64
+    return number
+
+
+def _xlsx_cell_text(cell, shared_strings, row_number):
+    namespace = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    cell_type = cell.attrib.get('t', '')
+    if cell.find(f'{{{namespace}}}f') is not None:
+        raise ValueError(f'Excel 第{row_number}行包含公式单元格，请先复制并粘贴为数值。')
+    if cell_type == 'inlineStr':
+        inline = cell.find(f'{{{namespace}}}is')
+        if inline is None:
+            return ''
+        return ''.join(node.text or '' for node in inline.iter()
+                       if node.tag == f'{{{namespace}}}t').strip()
+    value = cell.find(f'{{{namespace}}}v')
+    if value is None or value.text is None:
+        return ''
+    raw = value.text.strip()
+    if cell_type == 's':
+        try:
+            index = int(raw)
+            return shared_strings[index]
+        except (ValueError, IndexError):
+            raise ValueError(f'Excel 第{row_number}行包含无效的共享字符串索引。')
+    if cell_type == 'e':
+        raise ValueError(f'Excel 第{row_number}行包含错误值。')
+    return raw
+
+
+def read_block_names_xlsx(path):
+    """Read the first visible worksheet: column A=图号, column B=正式块名称."""
+    namespace = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    document_relationships = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    package_relationships = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    path = Path(path)
+    try:
+        with zipfile.ZipFile(path, 'r') as archive:
+            names = set(archive.namelist())
+            if 'xl/workbook.xml' not in names or 'xl/_rels/workbook.xml.rels' not in names:
+                raise ValueError('文件不是有效的 .xlsx 工作簿。')
+            workbook = ET.fromstring(archive.read('xl/workbook.xml'))
+            relations = ET.fromstring(archive.read('xl/_rels/workbook.xml.rels'))
+            relation_targets = {
+                item.attrib.get('Id', ''): item.attrib.get('Target', '')
+                for item in relations.findall(f'{{{package_relationships}}}Relationship')
+            }
+            sheets = workbook.findall(f'.//{{{namespace}}}sheet')
+            visible_sheets = [sheet for sheet in sheets
+                              if sheet.attrib.get('state', 'visible') == 'visible']
+            sheet = (visible_sheets or sheets or [None])[0]
+            if sheet is None:
+                raise ValueError('Excel 工作簿中没有工作表。')
+            relation_id = sheet.attrib.get(f'{{{document_relationships}}}id', '')
+            target = relation_targets.get(relation_id, '')
+            if not target:
+                raise ValueError('无法定位 Excel 第一张工作表。')
+            sheet_path = (target.lstrip('/') if target.startswith('/')
+                          else posixpath.normpath(posixpath.join('xl', target)))
+            if sheet_path not in names:
+                raise ValueError('Excel 第一张工作表文件缺失或路径无效。')
+
+            shared_strings = []
+            if 'xl/sharedStrings.xml' in names:
+                shared_root = ET.fromstring(archive.read('xl/sharedStrings.xml'))
+                for item in shared_root.findall(f'{{{namespace}}}si'):
+                    shared_strings.append(''.join(
+                        node.text or '' for node in item.iter()
+                        if node.tag == f'{{{namespace}}}t'
+                    ))
+
+            sheet_root = ET.fromstring(archive.read(sheet_path))
+            sheet_data = sheet_root.find(f'{{{namespace}}}sheetData')
+            if sheet_data is None:
+                raise ValueError('Excel 第一张工作表没有可读取的数据区域。')
+
+            rows = []
+            for fallback_number, row in enumerate(sheet_data.findall(f'{{{namespace}}}row'), 1):
+                try:
+                    row_number = int(row.attrib.get('r', fallback_number))
+                except ValueError:
+                    row_number = fallback_number
+                values = {1: '', 2: ''}
+                for cell in row.findall(f'{{{namespace}}}c'):
+                    column = _xlsx_column_number(cell.attrib.get('r', ''))
+                    if not column:
+                        continue
+                    value = _xlsx_cell_text(cell, shared_strings, row_number)
+                    if column > 2 and value:
+                        raise ValueError(f'Excel 第{row_number}行出现第三列及以后的内容；本清单只允许两列。')
+                    if column in values:
+                        values[column] = value.strip()
+                if values[1] or values[2]:
+                    rows.append((row_number, values[1], values[2]))
+    except ValueError:
+        raise
+    except (OSError, zipfile.BadZipFile, KeyError, ET.ParseError) as exc:
+        raise ValueError('无法读取 Excel 文件。请确认文件为未加密的 .xlsx 格式。') from exc
+
+    if not rows:
+        raise ValueError('Excel 第一张工作表为空。')
+
+    first_code = rows[0][1].strip().casefold()
+    first_name = rows[0][2].strip().casefold()
+    code_headers = {'图号', '编号', 'code', 'drawing_code', 'drawing code'}
+    name_headers = {'正式块名称', '块名称', '图符名称', 'block_name', 'symbol_name', 'name'}
+    if first_code in code_headers and first_name in name_headers:
+        rows = rows[1:]
+    elif first_code in code_headers or first_name in name_headers:
+        raise ValueError('Excel 表头不正确。第一列应为“图号”，第二列应为“正式块名称”。')
+
+    if not rows:
+        raise ValueError('Excel 中没有正式块名称数据。')
+
+    items = []
+    seen_codes = {}
+    seen_names = {}
+    for row_number, raw_code, raw_name in rows:
+        code = raw_code.strip()
+        block_name = raw_name.strip()
+        if not code or not block_name:
+            raise ValueError(f'Excel 第{row_number}行缺少图号或正式块名称。')
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*', code):
+            raise ValueError(f'Excel 第{row_number}行图号格式不正确：{code}')
+        if not block_name.casefold().startswith((code + '_').casefold()):
+            raise ValueError(f'Excel 第{row_number}行图号与正式块名称前缀不一致：{code} / {block_name}')
+        if BAD_FILE_CHARS.search(block_name) or block_name.endswith(('.', ' ')):
+            raise ValueError(f'Excel 第{row_number}行正式块名称包含不允许的字符：{block_name}')
+        code_key = code.casefold()
+        name_key = block_name.casefold()
+        if code_key in seen_codes:
+            raise ValueError(
+                f'图号重复：{code}（Excel 第{seen_codes[code_key]}行和第{row_number}行）。'
+                '一个图号只能对应一个正式块名称，请核对。'
+            )
+        if name_key in seen_names:
+            raise ValueError(
+                f'正式块名称重复：{block_name}（Excel 第{seen_names[name_key]}行和第{row_number}行）。'
+            )
+        seen_codes[code_key] = row_number
+        seen_names[name_key] = row_number
+        items.append((code, block_name))
+    return items
+
+
+def import_block_names_xlsx(c, path):
+    """Import the user's authoritative two-column Excel mapping."""
+    items = read_block_names_xlsx(path)
+    return _store_block_name_items(c, items, source_label='Excel .xlsx')
+
+
+def import_block_names(c, content):
+    """Legacy text-list importer retained for database compatibility; UI uses .xlsx."""
+    reader = csv.reader(io.StringIO(content))
+    items = []
     for cells in reader:
         if not cells or not any(str(x).strip() for x in cells):
             continue
-        first=str(cells[0]).strip().lstrip('\ufeff')
-        second=str(cells[1]).strip() if len(cells)>1 else ''
-        if first.casefold() in ('块名称','图符名称','block_name','symbol_name') and not second:
+        first = str(cells[0]).strip().lstrip('\ufeff')
+        second = str(cells[1]).strip() if len(cells) > 1 else ''
+        if first.casefold() in ('块名称', '正式块名称', '图符名称', 'block_name', 'symbol_name') and not second:
             continue
-        if first.casefold() in ('图号','编号','code','drawing_code') and second.casefold() in (
-                '块名称','图符名称','block_name','symbol_name','名称'):
+        if first.casefold() in ('图号', '编号', 'code', 'drawing_code') and second.casefold() in (
+                '正式块名称', '块名称', '图符名称', 'block_name', 'symbol_name', '名称'):
             continue
         if second:
-            code=first
-            block_name=second
-            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*',code):
-                raise ValueError(f'图号格式不正确：{code}')
-            prefix=block_name.split('_',1)[0] if '_' in block_name else ''
-            if prefix and prefix.casefold()!=code.casefold():
-                raise ValueError(f'图号与块名称前缀不一致：{code} / {block_name}')
+            code = first
+            block_name = second
         else:
-            block_name=first.strip().strip('"').strip("'")
+            block_name = first.strip().strip('"').strip("'")
             if '_' not in block_name:
-                raise ValueError(f'无法从块名称提取完整图号（需包含“图号_块名称”）：{block_name}')
-            code=block_name.split('_',1)[0].strip()
-            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*',code):
-                raise ValueError(f'无法从块名称提取有效图号：{code}')
-        if not block_name or BAD_FILE_CHARS.search(block_name) or block_name.endswith(('.', ' ')):
-            raise ValueError(f'块名称为空或包含不允许的字符：{block_name}')
-        items.append((code,block_name))
-    if not items:
-        raise ValueError('没有读取到有效的块名称')
-    codes=[code.casefold() for code,_ in items]
-    if len(codes)!=len(set(codes)):
-        raise ValueError('块名称清单中存在重复图号；一个图号只能对应一个块名称')
-    names=[name.casefold() for _,name in items]
-    if len(names)!=len(set(names)):
-        raise ValueError('块名称清单中存在重复块名称，请先核对')
-    with c:
-        c.execute('DELETE FROM block_name_map')
-        for code,block_name in items:
-            c.execute('''INSERT INTO block_name_map(code,block_name,imported_at)
-                         VALUES(?,?,?)''',(code,block_name,now()))
-        resolve_block_names(c)
-        add_event(c,'导入图符名称清单','',f'条目数 {len(items)}')
-    return len(items)
-
+                raise ValueError(f'无法从正式块名称提取图号：{block_name}')
+            code = block_name.split('_', 1)[0].strip()
+        items.append((code, block_name))
+    return _store_block_name_items(c, items, source_label='旧版 TXT/CSV')
 
 def resolve_block_names(c):
     """Resolve imported symbol names against present drawings by exact code only."""
