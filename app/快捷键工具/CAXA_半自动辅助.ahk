@@ -83,7 +83,7 @@ logPanelActionExpiry(action, token, createdAt, nowEpoch, age) {
             . " | now_epoch=" nowEpoch
             . " | age_seconds=" age
             . " | result=expired"
-        FileAppend line "\r\n", dataDir "\panel_action_expiry.log", "UTF-8"
+        FileAppend line "`r`n", dataDir "\panel_action_expiry.log", "UTF-8"
     } catch {
     }
 }
