@@ -19,12 +19,24 @@ class ExcelNameWorkflowIntegrationTests(unittest.TestCase):
         source = (ROOT / "app" / "floating_panel.py").read_text(encoding="utf-8")
         self.assertIn("text='复制正式块名称'", source)
         self.assertIn("text='一键设置特性'", source)
-        self.assertIn("text='拾取筛选'", source)
-        self.assertIn("text='删除重线'", source)
-        self.assertIn("text='定义属性块'", source)
-        self.assertIn("ttk.Combobox(color_row", source)
-        self.assertIn("310x230", source)
+        for color in ("红色", "绿色", "蓝色", "洋红色", "白色+黑白色"):
+            self.assertIn(color, source)
+        self.assertIn("text='恢复全选'", source)
+        self.assertNotIn("ttk.Combobox(color_row", source)
+        self.assertIn("command=lambda value=source:self.open_color_filter(value)", source)
+        self.assertIn("320x265", source)
         self.assertIn("self.app.copy_official_block_name(parent=self.win)", source)
+
+    def test_color_property_action_uses_excel_layer_without_a_confirmation_dialog(self):
+        source = (ROOT / "app" / "floating_panel.py").read_text(encoding="utf-8")
+        start = source.index("    def open_color_properties(self):")
+        end = source.index("    def restore_color_filter(self):", start)
+        body = source[start:end]
+        self.assertIn("self._cad_color_rule(self._color_flow_source)", body)
+        self.assertIn("target_layer=target_layer", body)
+        self.assertIn("'apply_color_layer'", body)
+        self.assertNotIn("messagebox.askyesno", body)
+        self.assertNotIn("'open_properties'", body)
 
     def test_property_and_insert_entry_is_not_exposed_in_actions_page(self):
         source = (ROOT / "app" / "floating_panel.py").read_text(encoding="utf-8")
