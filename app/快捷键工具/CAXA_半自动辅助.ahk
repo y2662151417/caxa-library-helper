@@ -1498,6 +1498,75 @@ normalizeCadPropertyValue(value) {
     return StrLower(RegExReplace(Trim(value), "\s+", ""))
 }
 
+; Read-only snapshot of the docked Properties palette. It records only the
+; selected-object count, the five relevant property values, and Win32 control
+; metadata. It never records drawing text, geometry, coordinates of entities,
+; screenshots, clicks, CAD commands, edits or saves.
+probePropertiesPalette(expectedSignature) {
+    global jobFile, cadExe, dataDir, isPaused
+    if isPaused || cadExe = "" || !FileExist(jobFile) {
+        autoTip("控制器已暂停或没有活动任务；特性栏诊断未启动")
+        return false
+    }
+    if IniRead(jobFile, "active", "job_signature", "") != expectedSignature {
+        autoTip("当前任务已变化；特性栏诊断已拒绝")
+        return false
+    }
+    workFile := IniRead(jobFile, "active", "working_file", "")
+    mainHwnd := findUniqueWorkWindow(workFile)
+    if !mainHwnd || !jobWindowMatches(mainHwnd, workFile)
+      || !verifyBeforeAction(expectedSignature) {
+        autoTip("无法唯一定位当前工作副本；特性栏诊断未启动")
+        return false
+    }
+    try {
+        crlf := Chr(13) Chr(10)
+        report := "CAXA docked Properties palette - read-only diagnostic" crlf
+        report .= "Selected count: " readSelectedEntityCount(mainHwnd) crlf
+        report .= "Layer: " readSelectedPropertyValue(mainHwnd, "layer") crlf
+        report .= "Color: " readSelectedPropertyValue(mainHwnd, "color") crlf
+        report .= "Linetype: " readSelectedPropertyValue(mainHwnd, "linetype") crlf
+        report .= "Linetype scale: " readSelectedLinetypeScale(mainHwnd) crlf
+        report .= "Lineweight: " readSelectedPropertyValue(mainHwnd, "lineweight") crlf
+        report .= crlf "Control metadata only: ClassNN, Win32 class, ID, visible/enabled, client rectangle." crlf
+        controls := WinGetControls("ahk_id " mainHwnd)
+        limit := Min(controls.Length, 500)
+        for index, ctrl in controls {
+            if index > limit
+                break
+            try {
+                controlHwnd := ControlGetHwnd(ctrl, "ahk_id " mainHwnd)
+                className := WinGetClass("ahk_id " controlHwnd)
+                controlId := String(DllCall("GetDlgCtrlID", "Ptr", controlHwnd, "Int"))
+                visible := DllCall("IsWindowVisible", "Ptr", controlHwnd, "Int") ? "yes" : "no"
+                enabled := DllCall("IsWindowEnabled", "Ptr", controlHwnd, "Int") ? "yes" : "no"
+                ControlGetPos(&x, &y, &w, &h, ctrl, "ahk_id " mainHwnd)
+                report .= "#" index " | " ctrl " | " className " | ID=" controlId
+                    . " | Visible=" visible " | Enabled=" enabled
+                    . " | Rect=" x "," y "," w "," h crlf
+            } catch {
+            }
+        }
+        if controls.Length > limit
+            report .= "Truncated controls: " controls.Length - limit crlf
+        if !verifyBeforeAction(expectedSignature)
+          || !WinExist("ahk_id " mainHwnd)
+          || !jobWindowMatches(mainHwnd, workFile) {
+            autoTip("诊断期间任务或窗口发生变化；报告未保存")
+            return false
+        }
+        reportPath := dataDir "\properties_palette_probe.txt"
+        if FileExist(reportPath)
+            FileDelete reportPath
+        FileAppend report, reportPath, "UTF-8"
+        autoTip("左侧特性栏只读诊断已保存；未修改 CAD")
+        return true
+    } catch as e {
+        autoTip("特性栏诊断失败：" e.Message)
+        return false
+    }
+}
+
 ; One-time, non-clicking calibration of the four standard property-toolbar combos.
 beginPropertyComboCalibration(expectedSignature, slot, label) {
     global jobFile, cadExe, calibrationBusy, isPaused
