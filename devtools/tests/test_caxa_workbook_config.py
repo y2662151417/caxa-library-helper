@@ -140,6 +140,8 @@ class CaxaWorkbookConfigTests(unittest.TestCase):
 
         invalid_rows = self.workbook_rows()
         invalid_rows[2][0] = "CRB01D2084"
+        invalid_rows[2][1] = self.source1.name
+        invalid_rows[2][2] = "CRB01D2084_另一个正式名称"
         invalid = self.root / "duplicate.xlsx"
         write_xlsx(invalid, invalid_rows)
         with self.assertRaisesRegex(ValueError, "图号重复"):
