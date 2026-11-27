@@ -41,8 +41,8 @@ def request_panel_action(storage: Path, action: str, signature: str, *,
     storage.mkdir(parents=True, exist_ok=True)
     conf = configparser.ConfigParser(interpolation=None)
     conf.optionxform = str
-    if action == "set_pick_filter":
-        allowed_colors = {"红色", "绿色", "蓝色", "洋红色", "白色+黑白色"}
+    allowed_colors = {"红色", "绿色", "蓝色", "洋红色", "白色+黑白色"}
+    if action in {"set_pick_filter", "apply_color_layer"}:
         if source_color not in allowed_colors:
             raise ValueError("不允许的颜色筛选项")
     elif source_color is not None:
