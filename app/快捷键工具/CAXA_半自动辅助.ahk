@@ -1475,6 +1475,29 @@ readSelectedLinetypeScale(mainHwnd) {
     return ""
 }
 
+readSelectedPropertyValue(mainHwnd, property) {
+    value := readPropertyPaneText(mainHwnd)
+    match := ""
+    if property = "layer" {
+        if RegExMatch(value, "im)^\s*(?:图层|层)\s+([^\r\n]+)", &match)
+            return Trim(match[1])
+    } else if property = "linetype" {
+        if RegExMatch(value, "im)^\s*线型\s+([^\r\n]+)", &match)
+            return Trim(match[1])
+    } else if property = "color" {
+        if RegExMatch(value, "im)^\s*颜色\s+([^\r\n]+)", &match)
+            return Trim(match[1])
+    } else if property = "lineweight" {
+        if RegExMatch(value, "im)^\s*线宽\s+([^\r\n]+)", &match)
+            return Trim(match[1])
+    }
+    return ""
+}
+
+normalizeCadPropertyValue(value) {
+    return StrLower(RegExReplace(Trim(value), "\s+", ""))
+}
+
 ; One-time, non-clicking calibration of the four standard property-toolbar combos.
 beginPropertyComboCalibration(expectedSignature, slot, label) {
     global jobFile, cadExe, calibrationBusy, isPaused
@@ -1578,17 +1601,27 @@ comboHasExactItem(ctrl, hwnd, wanted) {
 
 ; Apply the Excel-selected target layer and ByLayer overrides to the current
 ; CAXA selection. No modal confirmation, no new selection, and no save.
-applyColorLayer(expectedSignature, targetLayer, targetColor, targetLinetype, linetypeScale, targetLineweight) {
+applyColorLayer(expectedSignature, sourceColor, targetLayer, targetColor, targetLinetype, linetypeScale, targetLineweight) {
     global jobFile, cadExe, cfgFile, isPaused
+    global lastPickFilterSignature, lastPickFilterSource
+    global lastPickFilterBaselineCount, lastPickFilterTick
     if isPaused || !FileExist(jobFile) || cadExe = "" {
         autoTip("CAD 辅助已暂停或没有活动工作副本；未修改选集")
         return false
     }
-    if targetLayer = "" || StrLen(targetLayer) > 64
+    if sourceColor = "" || targetLayer = "" || StrLen(targetLayer) > 64
       || RegExMatch(targetLayer, "[\r\n\t=;#\[\]|]")
       || targetColor = "" || targetLinetype = "" || targetLineweight = ""
       || !IsNumber(linetypeScale) || Float(linetypeScale) <= 0 {
         autoTip("Excel 特性规则缺少有效目标值；已拒绝修改")
+        return false
+    }
+    if lastPickFilterSignature != expectedSignature
+      || lastPickFilterSource != sourceColor
+      || lastPickFilterBaselineCount != 0
+      || lastPickFilterTick = 0
+      || A_TickCount - lastPickFilterTick > 600000 {
+        autoTip("当前选集没有对应的近期颜色筛选记录；请先清除旧选集，再重新点击颜色按钮")
         return false
     }
     try {
@@ -1604,6 +1637,12 @@ applyColorLayer(expectedSignature, targetLayer, targetColor, targetLinetype, lin
             autoTip("未能唯一定位当前工作副本；未修改属性")
             return false
         }
+        pid := WinGetPID("ahk_id " hwnd)
+        dialogHwnd := findPickFilterDialog(expectedSignature, workFile, hwnd)
+        if dialogHwnd {
+            autoTip("拾取过滤窗口尚未关闭；请先点击“确定”，再框选对象")
+            return false
+        }
         if !verifyBeforeAction(sig) || !FileExist(jobFile)
           || IniRead(jobFile, "active", "job_signature", "") != sig
           || !WinExist("ahk_id " hwnd) || !jobWindowMatches(hwnd, workFile) {
@@ -1612,7 +1651,7 @@ applyColorLayer(expectedSignature, targetLayer, targetColor, targetLinetype, lin
         }
         selectionCount := readSelectedEntityCount(hwnd)
         if selectionCount < 1 {
-            autoTip("左侧特性栏未识别到非空选集；请先框选对象并保持特性栏打开，未修改属性")
+            autoTip("左侧特性栏未识别到非空选集；请先按颜色过滤并框选对象，未修改属性")
             return false
         }
         targetScale := Float(linetypeScale)
@@ -1622,7 +1661,7 @@ applyColorLayer(expectedSignature, targetLayer, targetColor, targetLinetype, lin
             return false
         }
         if Abs(currentScale - targetScale) > 0.000001 {
-            autoTip("选集线型比例为 " currentScale "，Excel 要求 " targetScale "；当前未自动改写比例，未修改其他属性")
+            autoTip("当前线型比例为 " currentScale "，Excel 目标为 " targetScale "。本版尚未校准比例编辑控件，未修改其他属性")
             return false
         }
         fieldPlan := [
@@ -1670,10 +1709,10 @@ applyColorLayer(expectedSignature, targetLayer, targetColor, targetLinetype, lin
             ctrl := IniRead(cfgFile, slot, "control", "")
             value := field["value"]
             ControlChooseString value, ctrl, "ahk_id " hwnd
-            Sleep 120
+            Sleep 180
             observed := Trim(ControlGetText(ctrl, "ahk_id " hwnd))
             if StrLower(observed) != StrLower(value) {
-                autoTip("【" field["label"] "】读回不一致；可能尚未修改或已部分修改，请检查左侧特性栏")
+                autoTip("【" field["label"] "】工具栏读回不一致；请检查左侧特性栏，可能尚未修改或已部分修改")
                 return false
             }
             if WinGetID("A") != hwnd || !jobWindowMatches(hwnd, workFile) {
@@ -1686,13 +1725,42 @@ applyColorLayer(expectedSignature, targetLayer, targetColor, targetLinetype, lin
                 return false
             }
         }
-        autoTip("已向当前 " selectionCount " 个选中对象写入 Excel 特性；线型比例 " targetScale " 已核对。请检查左侧特性栏，未自动保存")
+
+        ; The toolbar combo's own text is not proof of entity modification.
+        ; Require the docked Properties palette to report the target values.
+        observedLayer := readSelectedPropertyValue(hwnd, "layer")
+        observedColor := readSelectedPropertyValue(hwnd, "color")
+        observedLinetype := readSelectedPropertyValue(hwnd, "linetype")
+        observedLineweight := readSelectedPropertyValue(hwnd, "lineweight")
+        observedScale := readSelectedLinetypeScale(hwnd)
+        if normalizeCadPropertyValue(observedLayer) != normalizeCadPropertyValue(targetLayer)
+          || normalizeCadPropertyValue(observedColor) != normalizeCadPropertyValue(targetColor)
+          || normalizeCadPropertyValue(observedLinetype) != normalizeCadPropertyValue(targetLinetype)
+          || normalizeCadPropertyValue(observedLineweight) != normalizeCadPropertyValue(targetLineweight)
+          || observedScale = "" || Abs(observedScale - targetScale) > 0.000001 {
+            autoTip("工具栏设置已提交，但左侧特性栏读回未全部匹配；请检查选集，可能已部分修改。未自动保存")
+            return false
+        }
+        if !verifyBeforeAction(sig)
+          || !WinExist("ahk_id " hwnd)
+          || WinGetPID("ahk_id " hwnd) != pid
+          || !jobWindowMatches(hwnd, workFile)
+          || readSelectedEntityCount(hwnd) != selectionCount {
+            autoTip("属性写入后的任务/选集复核未通过；请检查左侧特性栏")
+            return false
+        }
+        lastPickFilterSignature := ""
+        lastPickFilterSource := ""
+        lastPickFilterBaselineCount := -1
+        lastPickFilterTick := 0
+        autoTip("已核验当前 " selectionCount " 个选中对象的图层、颜色、线型、线宽；线型比例原本已为 " targetScale "。请检查左侧特性栏，未自动保存")
         return true
     } catch as e {
         autoTip("一键设置特性失败：" e.Message "；请检查左侧特性栏")
         return false
     }
 }
+
 
 ; Read-only, targeted diagnostics for the native CAXA pick-filter dialog.
 ; Only the dialog's control labels, IDs, classes, states and geometry are read.
