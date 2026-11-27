@@ -22,7 +22,7 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Optional
 
 AHK_VERSION = "2.0.32"
-CONTROLLER_BUILD_ID = "caxa-helper-v0.42.17"
+CONTROLLER_BUILD_ID = "caxa-helper-v0.42.18"
 ARCHIVE_URL = "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.32/AutoHotkey_2.0.32.zip"
 ARCHIVE_SHA256 = "384a4c125e8d7b5b77ddbd5a593ec761d3e9e96e97a95931cf56e9a077fda114"
 MAX_ARCHIVE_BYTES = 20 * 1024 * 1024
