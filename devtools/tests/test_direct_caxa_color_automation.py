@@ -47,7 +47,7 @@ class DirectCaxaColorAutomationSourceTests(unittest.TestCase):
         self.assertIn('createdAt := IniRead(panelActionFile, "request", "created_at", "")', self.ahk)
         self.assertIn("if IsNumber(createdAt)", self.ahk)
         self.assertIn("age > 300", self.ahk)
-        poll = self.ahk.split("PanelActionPoll() {", 1)[1].split("\\n}", 1)[0]
+        poll = self.ahk.split("PanelActionPoll() {", 1)[1].split("\n}", 1)[0]
         self.assertIn("age > 300", poll)
         self.assertNotIn("age > 30 ||", poll)
 
