@@ -28,6 +28,7 @@ jobs:
 
   ahk-syntax:
     runs-on: windows-latest
+    timeout-minutes: 8
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -36,7 +37,8 @@ jobs:
         run: |
           $archive = Join-Path $env:TEMP "AutoHotkey_2.0.32.zip"
           $extract = Join-Path $env:TEMP "AutoHotkey_2.0.32"
-          Invoke-WebRequest -Uri "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.32/AutoHotkey_2.0.32.zip" -OutFile $archive
+          curl.exe --fail --location --silent --show-error --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 180 --output $archive "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.32/AutoHotkey_2.0.32.zip"
+          if ($LASTEXITCODE -ne 0) { throw "Portable AutoHotkey download failed with curl exit code $LASTEXITCODE" }
           $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
           $expected = "384a4c125e8d7b5b77ddbd5a593ec761d3e9e96e97a95931cf56e9a077fda114"
           if ($actual -ne $expected) { throw "AutoHotkey archive SHA-256 mismatch: $actual" }
