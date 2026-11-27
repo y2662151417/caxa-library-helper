@@ -1365,6 +1365,17 @@ readSelectedEntityCount(mainHwnd) {
         } catch {
         }
     }
+    ; WinGetText reads child-window captions only, not rendered drawing entities.
+    ; It is a fallback for CAXA builds that expose the docked palette as one child.
+    try {
+        value := WinGetText("ahk_id " mainHwnd)
+        if RegExMatch(value, "全部\s*[（(]\s*([0-9]+)\s*[）)]", &match) {
+            count := Integer(match[1])
+            if count > 0
+                return count
+        }
+    } catch {
+    }
     return 0
 }
 
