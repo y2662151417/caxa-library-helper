@@ -25,7 +25,7 @@
 - unittest：108 项全部通过。
 - 增量 manifest SHA-256/size：通过。
 - Windows AutoHotkey v2 语法检查：主助手脚本与独立只读控件探针均通过。
-- CI run：https://github.com/y2662151417/caxa-library-helper/actions/runs/45933368846
+- CI run：https://github.com/y2662151417/caxa-library-helper/actions/runs/45933528411
 - CI 不连接用户的 CAXA 2024，不代表实机功能已验收。
 
 ## 当前明确未完成
