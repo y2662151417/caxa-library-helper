@@ -5,6 +5,11 @@
 #SingleInstance Force
 Persistent
 
+; CI-only parse mode: AHK parses this file and its includes before executing.
+; No timers, files, CAD commands or hotkeys are started in this mode.
+if A_Args.Length > 0 && A_Args[1] = "--syntax-check"
+    ExitApp 0
+
 ; CAXA gallery assistant: intentionally no silent confirmation, save, delete or batch edits.
 ; All CAD clicks require binding to the active process and one-time local calibration.
 
