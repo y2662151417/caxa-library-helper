@@ -441,6 +441,7 @@ PanelActionPoll() {
             return
         action := IniRead(panelActionFile, "request", "action", "")
         signature := IniRead(panelActionFile, "request", "job_signature", "")
+        sourceColor := IniRead(panelActionFile, "request", "source_color", "")
         requestTime := FileGetTime(panelActionFile, "M")
         age := DateDiff(requestTime, A_Now, "Seconds")
         panelActionSeen := token
@@ -458,16 +459,23 @@ PanelActionPoll() {
             bindCadForPublishedJob(signature)
         } else if action = "probe_cad_controls" {
             probeCaxaControls(signature)
+        } else if action = "probe_pick_filter_dialog" {
+            probePickFilterDialog(signature, sourceColor)
+        } else if action = "probe_properties_panel" {
+            probePropertiesPanel(signature, sourceColor)
         } else if action = "duplicate_line_cleanup" {
             startDuplicateLineCleanup(signature)
         } else if action = "fill_symbol_name" {
             autoTip("正式名称由操作者手动复制和粘贴；助手不会自动填写")
         } else if action = "open_pick_filter" {
-            runPublishedNativeCommand(signature, "objectset", "打开拾取过滤设置")
+            if runPublishedNativeCommand(signature, "objectset", "打开拾取过滤设置")
+                probePickFilterDialog(signature, sourceColor)
         } else if action = "open_properties" {
-            runPublishedNativeCommand(signature, "properties", "打开属性面板")
+            if runPublishedNativeCommand(signature, "properties", "打开属性面板")
+                probePropertiesPanel(signature, sourceColor)
         } else if action = "restore_pick_filter" {
-            runPublishedNativeCommand(signature, "objectset", "恢复拾取过滤设置")
+            if runPublishedNativeCommand(signature, "objectset", "恢复拾取过滤设置")
+                probePickFilterDialog(signature, "全部颜色")
         } else if action = "start_view_guide" {
             startGuide(signature)
         } else if action = "next_view" {
@@ -1077,6 +1085,185 @@ FinishTimedCalibration(targetHwnd, mainHwnd, signature, slot, label, title, clas
 }
 
 ; Start only documented CAXA native dialogs. This helper never selects entities
+; Read-only, targeted diagnostics for the native CAXA pick-filter dialog.
+; Only the dialog's control labels, IDs, classes, states and geometry are read.
+; No drawing text, entity data, screenshots, clicks or property changes are captured.
+probePickFilterDialog(expectedSignature, sourceColor := "") {
+    global jobFile, cadExe, dataDir, isPaused
+    if isPaused || cadExe = "" || !FileExist(jobFile)
+        return false
+    workFile := IniRead(jobFile, "active", "working_file", "")
+    if workFile = "" || !verifyBeforeAction(expectedSignature)
+        return false
+    mainHwnd := findUniqueWorkWindow(workFile)
+    if !mainHwnd || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile)
+        return false
+    pid := WinGetPID("ahk_id " mainHwnd)
+    Sleep 350
+    dialogHwnd := 0
+    for hwnd in WinGetList("ahk_pid " pid) {
+        try {
+            title := WinGetTitle("ahk_id " hwnd)
+            if InStr(title, "拾取过滤") {
+                dialogHwnd := hwnd
+                break
+            }
+        } catch {
+        }
+    }
+    if !dialogHwnd {
+        autoTip("已打开 CAXA 拾取设置，但未定位到独立的“拾取过滤”窗口；未读取或更改任何控件")
+        return false
+    }
+    if !verifyBeforeAction(expectedSignature)
+      || !WinExist("ahk_id " dialogHwnd)
+      || WinGetPID("ahk_id " dialogHwnd) != pid
+      || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
+        autoTip("拾取过滤对话框身份核验未通过；未读取控件")
+        return false
+    }
+    report := "CAXA 拾取过滤对话框只读诊断" . Chr(13) . Chr(10)
+    report .= "工作副本：" . workFile . Chr(13) . Chr(10)
+    report .= "面板选择颜色：" . sourceColor . Chr(13) . Chr(10)
+    report .= "窗口标题：" . WinGetTitle("ahk_id " dialogHwnd) . Chr(13) . Chr(10)
+    report .= "仅包含该对话框的控件文字、类别、ID、勾选状态与位置；没有读取图纸内容。" . Chr(13) . Chr(10) . Chr(13) . Chr(10)
+    try controls := WinGetControls("ahk_id " dialogHwnd)
+    catch {
+        autoTip("拾取过滤对话框控件枚举失败；未保存报告")
+        return false
+    }
+    for index, ctrl in controls {
+        try {
+            controlHwnd := ControlGetHwnd(ctrl, "ahk_id " dialogHwnd)
+            controlText := ""
+            controlClass := "unavailable"
+            controlId := "unavailable"
+            checked := "n/a"
+            try controlText := ControlGetText(ctrl, "ahk_id " dialogHwnd)
+            try controlClass := WinGetClass("ahk_id " controlHwnd)
+            try controlId := String(DllCall("GetDlgCtrlID", "Ptr", controlHwnd, "Int"))
+            try checked := String(ControlGetChecked(ctrl, "ahk_id " dialogHwnd))
+            cx := 0, cy := 0, cw := 0, ch := 0
+            try ControlGetPos(&cx, &cy, &cw, &ch, ctrl, "ahk_id " dialogHwnd)
+            report .= "#" . index . " | " . ctrl . " | HWND=" . controlHwnd
+                . " | ID=" . controlId . " | Class=" . controlClass
+                . " | Checked=" . checked . " | Rect=" . cx . "," . cy . "," . cw . "," . ch
+                . " | Text=" . StrReplace(StrReplace(controlText, Chr(13), " "), Chr(10), " ")
+                . Chr(13) . Chr(10)
+        } catch as e {
+            report .= "#" . index . " | " . ctrl . " | read error: " . e.Message . Chr(13) . Chr(10)
+        }
+    }
+    if !verifyBeforeAction(expectedSignature)
+      || !WinExist("ahk_id " dialogHwnd)
+      || WinGetPID("ahk_id " dialogHwnd) != pid {
+        autoTip("拾取过滤诊断期间窗口发生变化；报告未保存")
+        return false
+    }
+    reportPath := dataDir "\pick_filter_dialog_probe.txt"
+    try {
+        if FileExist(reportPath)
+            FileDelete reportPath
+        FileAppend(report, reportPath, "UTF-8")
+        autoTip("拾取过滤对话框诊断已保存到助手数据目录；未更改任何设置")
+        return true
+    } catch as e {
+        autoTip("诊断报告保存失败：" . e.Message)
+        return false
+    }
+}
+
+; Read-only diagnostic for a separate CAXA properties palette/dialog, if exposed.
+; If the palette is docked inside the main drawing window, this probe deliberately
+; reports that it was not found rather than reading the drawing canvas.
+probePropertiesPanel(expectedSignature, sourceColor := "") {
+    global jobFile, cadExe, dataDir, isPaused
+    if isPaused || cadExe = "" || !FileExist(jobFile)
+        return false
+    workFile := IniRead(jobFile, "active", "working_file", "")
+    if workFile = "" || !verifyBeforeAction(expectedSignature)
+        return false
+    mainHwnd := findUniqueWorkWindow(workFile)
+    if !mainHwnd || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile)
+        return false
+    pid := WinGetPID("ahk_id " mainHwnd)
+    Sleep 350
+    paletteHwnd := 0
+    paletteTitle := ""
+    for hwnd in WinGetList("ahk_pid " pid) {
+        if hwnd = mainHwnd
+            continue
+        try {
+            title := WinGetTitle("ahk_id " hwnd)
+            if InStr(title, "特性") || InStr(title, "属性") || InStr(StrLower(title), "properties") {
+                paletteHwnd := hwnd
+                paletteTitle := title
+                break
+            }
+        } catch {
+        }
+    }
+    if !paletteHwnd {
+        autoTip("未发现独立的 CAXA 属性窗口；属性自动设置尚未校准，未读取主绘图区控件")
+        return false
+    }
+    if !verifyBeforeAction(expectedSignature)
+      || !WinExist("ahk_id " paletteHwnd)
+      || WinGetPID("ahk_id " paletteHwnd) != pid {
+        autoTip("属性窗口身份核验未通过；未读取控件")
+        return false
+    }
+    report := "CAXA 属性面板只读诊断" . Chr(13) . Chr(10)
+    report .= "工作副本：" . workFile . Chr(13) . Chr(10)
+    report .= "面板选择颜色：" . sourceColor . Chr(13) . Chr(10)
+    report .= "窗口标题：" . paletteTitle . Chr(13) . Chr(10)
+    report .= "仅包含独立属性窗口控件；没有读取图纸内容或修改属性。" . Chr(13) . Chr(10) . Chr(13) . Chr(10)
+    try controls := WinGetControls("ahk_id " paletteHwnd)
+    catch {
+        autoTip("属性窗口控件枚举失败；未保存报告")
+        return false
+    }
+    for index, ctrl in controls {
+        try {
+            controlHwnd := ControlGetHwnd(ctrl, "ahk_id " paletteHwnd)
+            controlText := ""
+            controlClass := "unavailable"
+            controlId := "unavailable"
+            checked := "n/a"
+            try controlText := ControlGetText(ctrl, "ahk_id " paletteHwnd)
+            try controlClass := WinGetClass("ahk_id " controlHwnd)
+            try controlId := String(DllCall("GetDlgCtrlID", "Ptr", controlHwnd, "Int"))
+            try checked := String(ControlGetChecked(ctrl, "ahk_id " paletteHwnd))
+            cx := 0, cy := 0, cw := 0, ch := 0
+            try ControlGetPos(&cx, &cy, &cw, &ch, ctrl, "ahk_id " paletteHwnd)
+            report .= "#" . index . " | " . ctrl . " | HWND=" . controlHwnd
+                . " | ID=" . controlId . " | Class=" . controlClass
+                . " | Checked=" . checked . " | Rect=" . cx . "," . cy . "," . cw . "," . ch
+                . " | Text=" . StrReplace(StrReplace(controlText, Chr(13), " "), Chr(10), " ")
+                . Chr(13) . Chr(10)
+        } catch as e {
+            report .= "#" . index . " | " . ctrl . " | read error: " . e.Message . Chr(13) . Chr(10)
+        }
+    }
+    if !verifyBeforeAction(expectedSignature)
+      || !WinExist("ahk_id " paletteHwnd)
+      || WinGetPID("ahk_id " paletteHwnd) != pid {
+        autoTip("属性诊断期间窗口发生变化；报告未保存")
+        return false
+    }
+    reportPath := dataDir "\properties_panel_probe.txt"
+    try {
+        if FileExist(reportPath)
+            FileDelete reportPath
+        FileAppend(report, reportPath, "UTF-8")
+        autoTip("属性面板诊断已保存到助手数据目录；未修改任何属性")
+        return true
+    } catch as e {
+        autoTip("诊断报告保存失败：" . e.Message)
+        return false
+    }
+}
+
 ; or edits properties. Commands are allow-listed and bound to the published
 ; work-copy window and the live workbench lease.
 runPublishedNativeCommand(expectedSignature, command, label) {
