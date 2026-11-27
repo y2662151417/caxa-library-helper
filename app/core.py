@@ -6,14 +6,33 @@ import datetime as dt
 import io
 import os
 from pathlib import Path
+import posixpath
 import re
 import shutil
 import sqlite3
+import zipfile
+import xml.etree.ElementTree as ET
 
 VIEW_TYPES = ('主视图', '俯视图', '左视图', '右视图', '剖视图', '局部视图')
 KINDS = ('无尺寸', '带尺寸')
 DEFAULT_VIEW_TEMPLATE = ('主视图', '俯视图', '左视图')
 TWO_VIEW_TEMPLATE = ('主视图', '左视图')
+
+# User-confirmed CAXA layer mapping. Excel may override individual rules by
+# adding an explicit "原始颜色" column to the color-rule table.
+DEFAULT_CAXA_COLOR_RULES = (
+    {'source_color':'红色','target_layer':'中心线层','target_color':'ByLayer',
+     'target_linetype':'ByLayer','linetype_scale':1.0,'target_lineweight':'ByLayer'},
+    {'source_color':'绿色','target_layer':'虚线层','target_color':'ByLayer',
+     'target_linetype':'ByLayer','linetype_scale':1.0,'target_lineweight':'ByLayer'},
+    {'source_color':'蓝色','target_layer':'双点划线层','target_color':'ByLayer',
+     'target_linetype':'ByLayer','linetype_scale':1.0,'target_lineweight':'ByLayer'},
+    {'source_color':'洋红色','target_layer':'细实线层','target_color':'ByLayer',
+     'target_linetype':'ByLayer','linetype_scale':1.0,'target_lineweight':'ByLayer'},
+    {'source_color':'白色+黑白色','target_layer':'0层','target_color':'ByLayer',
+     'target_linetype':'ByLayer','linetype_scale':1.0,'target_lineweight':'ByLayer'},
+)
+CAXA_COLOR_ORDER = tuple(rule['source_color'] for rule in DEFAULT_CAXA_COLOR_RULES)
 
 
 def validate_view_template(selected):
@@ -130,9 +149,22 @@ def connect(dbfile: Path):
     # locally generated suggested_name. Match only by the complete drawing code.
     c.execute('''CREATE TABLE IF NOT EXISTS block_name_map (
         code TEXT PRIMARY KEY COLLATE NOCASE,
+        drawing_filename TEXT NOT NULL DEFAULT '',
         block_name TEXT NOT NULL UNIQUE COLLATE NOCASE,
         matched_path TEXT NOT NULL DEFAULT '',
         match_status TEXT NOT NULL DEFAULT '待匹配',
+        imported_at TEXT NOT NULL
+    )''')
+    block_cols={r[1] for r in c.execute('PRAGMA table_info(block_name_map)')}
+    if 'drawing_filename' not in block_cols:
+        c.execute("ALTER TABLE block_name_map ADD COLUMN drawing_filename TEXT NOT NULL DEFAULT ''")
+    c.execute('''CREATE TABLE IF NOT EXISTS cad_color_rules (
+        source_color TEXT PRIMARY KEY COLLATE NOCASE,
+        target_layer TEXT NOT NULL,
+        target_color TEXT NOT NULL DEFAULT 'ByLayer',
+        target_linetype TEXT NOT NULL DEFAULT 'ByLayer',
+        linetype_scale REAL NOT NULL DEFAULT 1.0,
+        target_lineweight TEXT NOT NULL DEFAULT 'ByLayer',
         imported_at TEXT NOT NULL
     )''')
     c.execute('CREATE INDEX IF NOT EXISTS idx_events_path ON events(drawing_path)')
@@ -447,75 +479,436 @@ def manifest_summary(c):
     return c.execute('SELECT * FROM manifest ORDER BY id').fetchall()
 
 
-def import_block_names(c, content):
-    """Import actual CAXA symbol names and bind them to drawings by exact code.
-
-    Accepted formats:
-      - one column: CRB01D2084_垂直重锤拉紧装置_B500_08轴_D500
-      - two columns: drawing_code, block_name
-    A partial/shared prefix is never used for matching.
-    """
-    reader=csv.reader(io.StringIO(content))
-    items=[]
-    for cells in reader:
-        if not cells or not any(str(x).strip() for x in cells):
-            continue
-        first=str(cells[0]).strip().lstrip('\ufeff')
-        second=str(cells[1]).strip() if len(cells)>1 else ''
-        if first.casefold() in ('块名称','图符名称','block_name','symbol_name') and not second:
-            continue
-        if first.casefold() in ('图号','编号','code','drawing_code') and second.casefold() in (
-                '块名称','图符名称','block_name','symbol_name','名称'):
-            continue
-        if second:
-            code=first
-            block_name=second
-            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*',code):
-                raise ValueError(f'图号格式不正确：{code}')
-            prefix=block_name.split('_',1)[0] if '_' in block_name else ''
-            if prefix and prefix.casefold()!=code.casefold():
-                raise ValueError(f'图号与块名称前缀不一致：{code} / {block_name}')
+def _validate_block_name_items(items):
+    normalized = []
+    for item in items:
+        if len(item) == 2:
+            raw_code, raw_name = item
+            raw_filename = ''
+        elif len(item) == 3:
+            raw_code, raw_filename, raw_name = item
         else:
-            block_name=first.strip().strip('"').strip("'")
-            if '_' not in block_name:
-                raise ValueError(f'无法从块名称提取完整图号（需包含“图号_块名称”）：{block_name}')
-            code=block_name.split('_',1)[0].strip()
-            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*',code):
-                raise ValueError(f'无法从块名称提取有效图号：{code}')
+            raise ValueError('图纸映射每行必须包含图号、可选文件名和正式块名称')
+        code = str(raw_code).strip()
+        raw_filename = str(raw_filename).strip()
+        drawing_filename = raw_filename.replace('\\\\', '/').rsplit('/', 1)[-1] if raw_filename else ''
+        block_name = str(raw_name).strip()
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*', code):
+            raise ValueError(f'图号格式不正确：{code}')
         if not block_name or BAD_FILE_CHARS.search(block_name) or block_name.endswith(('.', ' ')):
-            raise ValueError(f'块名称为空或包含不允许的字符：{block_name}')
-        items.append((code,block_name))
-    if not items:
-        raise ValueError('没有读取到有效的块名称')
-    codes=[code.casefold() for code,_ in items]
-    if len(codes)!=len(set(codes)):
-        raise ValueError('块名称清单中存在重复图号；一个图号只能对应一个块名称')
-    names=[name.casefold() for _,name in items]
-    if len(names)!=len(set(names)):
-        raise ValueError('块名称清单中存在重复块名称，请先核对')
+            raise ValueError(f'正式块名称为空或包含不允许的字符：{block_name}')
+        expected_prefix = code + '_'
+        if not block_name.casefold().startswith(expected_prefix.casefold()):
+            raise ValueError(f'正式块名称前缀不一致，必须以对应图号加下划线开头：{code} / {block_name}')
+        if drawing_filename:
+            file_code, _, valid_file = parse_filename(drawing_filename)
+            if not valid_file or file_code.casefold() != code.casefold():
+                raise ValueError(f'Excel 文件名与图号不一致：{code} / {drawing_filename}')
+        normalized.append((code, drawing_filename, block_name))
+
+    seen_codes = {}
+    seen_names = {}
+    seen_files = {}
+    for code, drawing_filename, block_name in normalized:
+        code_key = code.casefold()
+        name_key = block_name.casefold()
+        file_key = drawing_filename.casefold()
+        if code_key in seen_codes:
+            raise ValueError(f'图号重复：{code}。一个图号只能对应一个正式块名称，请核对 Excel。')
+        if name_key in seen_names:
+            raise ValueError(f'正式块名称重复：{block_name}。请核对 Excel。')
+        if file_key and file_key in seen_files:
+            raise ValueError(f'EXB 文件名重复：{drawing_filename}。请核对 Excel。')
+        seen_codes[code_key] = block_name
+        seen_names[name_key] = code
+        if file_key:
+            seen_files[file_key] = code
+    if not normalized:
+        raise ValueError('没有读取到有效的正式块名称')
+    return normalized
+
+
+def _store_block_name_items(c, items, source_label='正式块名称清单'):
+    items = _validate_block_name_items(items)
     with c:
         c.execute('DELETE FROM block_name_map')
-        for code,block_name in items:
-            c.execute('''INSERT INTO block_name_map(code,block_name,imported_at)
-                         VALUES(?,?,?)''',(code,block_name,now()))
+        for code, drawing_filename, block_name in items:
+            c.execute('''INSERT INTO block_name_map(code,drawing_filename,block_name,imported_at)
+                         VALUES(?,?,?,?)''', (code, drawing_filename, block_name, now()))
         resolve_block_names(c)
-        add_event(c,'导入图符名称清单','',f'条目数 {len(items)}')
+        add_event(c, '导入正式块名称', '', f'{source_label}；条目数 {len(items)}')
     return len(items)
 
 
+def _xlsx_column_number(reference):
+    match = re.match(r'([A-Z]+)', str(reference).upper())
+    if not match:
+        return 0
+    number = 0
+    for char in match.group(1):
+        number = number * 26 + ord(char) - 64
+    return number
+
+
+def _xlsx_cell_text(cell, shared_strings, row_number):
+    namespace = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    cell_type = cell.attrib.get('t', '')
+    if cell.find(f'{{{namespace}}}f') is not None:
+        raise ValueError(f'Excel 第{row_number}行包含公式单元格，请先复制并粘贴为数值。')
+    if cell_type == 'inlineStr':
+        inline = cell.find(f'{{{namespace}}}is')
+        if inline is None:
+            return ''
+        return ''.join(node.text or '' for node in inline.iter()
+                       if node.tag == f'{{{namespace}}}t').strip()
+    value = cell.find(f'{{{namespace}}}v')
+    if value is None or value.text is None:
+        return ''
+    raw = value.text.strip()
+    if cell_type == 's':
+        try:
+            index = int(raw)
+            return shared_strings[index]
+        except (ValueError, IndexError):
+            raise ValueError(f'Excel 第{row_number}行包含无效的共享字符串索引。')
+    if cell_type == 'e':
+        raise ValueError(f'Excel 第{row_number}行包含错误值。')
+    return raw
+
+
+def _read_first_visible_xlsx_rows(path):
+    """Return (row number, {1-based column: text}) for the first visible sheet."""
+    namespace = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    document_relationships = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    package_relationships = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    path = Path(path)
+    try:
+        with zipfile.ZipFile(path, 'r') as archive:
+            names = set(archive.namelist())
+            if 'xl/workbook.xml' not in names or 'xl/_rels/workbook.xml.rels' not in names:
+                raise ValueError('文件不是有效的 .xlsx 工作簿。')
+            workbook = ET.fromstring(archive.read('xl/workbook.xml'))
+            relations = ET.fromstring(archive.read('xl/_rels/workbook.xml.rels'))
+            relation_targets = {
+                item.attrib.get('Id', ''): item.attrib.get('Target', '')
+                for item in relations.findall(f'{{{package_relationships}}}Relationship')
+            }
+            sheets = workbook.findall(f'.//{{{namespace}}}sheet')
+            visible_sheets = [sheet for sheet in sheets
+                              if sheet.attrib.get('state', 'visible') == 'visible']
+            sheet = (visible_sheets or sheets or [None])[0]
+            if sheet is None:
+                raise ValueError('Excel 工作簿中没有工作表。')
+            relation_id = sheet.attrib.get(f'{{{document_relationships}}}id', '')
+            target = relation_targets.get(relation_id, '')
+            if not target:
+                raise ValueError('无法定位 Excel 第一张工作表。')
+            sheet_path = (target.lstrip('/') if target.startswith('/')
+                          else posixpath.normpath(posixpath.join('xl', target)))
+            if sheet_path not in names:
+                raise ValueError('Excel 第一张工作表文件缺失或路径无效。')
+            shared_strings = []
+            if 'xl/sharedStrings.xml' in names:
+                shared_root = ET.fromstring(archive.read('xl/sharedStrings.xml'))
+                for item in shared_root.findall(f'{{{namespace}}}si'):
+                    shared_strings.append(''.join(
+                        node.text or '' for node in item.iter()
+                        if node.tag == f'{{{namespace}}}t'
+                    ))
+            sheet_root = ET.fromstring(archive.read(sheet_path))
+            sheet_data = sheet_root.find(f'{{{namespace}}}sheetData')
+            if sheet_data is None:
+                raise ValueError('Excel 第一张工作表没有可读取的数据区域。')
+            rows = []
+            for fallback_number, row in enumerate(sheet_data.findall(f'{{{namespace}}}row'), 1):
+                try:
+                    row_number = int(row.attrib.get('r', fallback_number))
+                except ValueError:
+                    row_number = fallback_number
+                values = {}
+                for cell in row.findall(f'{{{namespace}}}c'):
+                    column = _xlsx_column_number(cell.attrib.get('r', ''))
+                    if column:
+                        values[column] = _xlsx_cell_text(cell, shared_strings, row_number).strip()
+                rows.append((row_number, values))
+            return rows
+    except ValueError:
+        raise
+    except (OSError, zipfile.BadZipFile, KeyError, ET.ParseError) as exc:
+        raise ValueError('无法读取 Excel 文件。请确认文件为未加密的 .xlsx 格式。') from exc
+
+
+def _header_key(value):
+    return re.sub(r'[\s_\-（）()【】\[\]：:]+', '', str(value or '')).casefold()
+
+
+def _is_name_header(values):
+    code = _header_key(values.get(1, ''))
+    second = _header_key(values.get(2, ''))
+    third = _header_key(values.get(3, ''))
+    code_headers = {'图号', '编号', 'code', 'drawingcode'}
+    name_headers = {'正式块名称', '块名称', '图符名称', 'blockname', 'symbolname', 'name'}
+    file_header = ('文件名' in second or second in {'filename', 'drawingfilename'})
+    if code in code_headers and third in name_headers and file_header:
+        return (1, 2, 3)
+    if code in code_headers and second in name_headers:
+        return (1, None, 2)
+    return None
+
+
+def _normalise_source_color(value):
+    key = _header_key(value)
+    aliases = {
+        '红色': '红色', 'red': '红色',
+        '绿色': '绿色', 'green': '绿色',
+        '蓝色': '蓝色', 'blue': '蓝色',
+        '洋红': '洋红色', '洋红色': '洋红色', 'magenta': '洋红色',
+        '白色+黑白色': '白色+黑白色', '白色黑白色': '白色+黑白色', '白色黑白': '白色+黑白色',
+        '白色和黑白色': '白色+黑白色', '白色加黑白色': '白色+黑白色',
+        'white+blackwhite': '白色+黑白色',
+    }
+    return aliases.get(key, str(value or '').strip())
+
+
+def _bylayer_value(value, default='ByLayer'):
+    raw = str(value or '').strip()
+    key = _header_key(raw)
+    if not raw or 'bylayer' in key or raw in {'随层', '随图层', '跟随图层'}:
+        return default
+    return raw
+
+
+def _validate_cad_color_rules(rules):
+    normalized = []
+    seen = set()
+    for rule in rules:
+        source = _normalise_source_color(rule.get('source_color', ''))
+        layer = str(rule.get('target_layer', '')).strip()
+        color = _bylayer_value(rule.get('target_color', 'ByLayer'))
+        linetype = _bylayer_value(rule.get('target_linetype', 'ByLayer'))
+        lineweight = _bylayer_value(rule.get('target_lineweight', 'ByLayer'))
+        scale = rule.get('linetype_scale', 1.0)
+        if not source:
+            raise ValueError('颜色规则缺少原始颜色')
+        if not layer or BAD_FILE_CHARS.search(layer):
+            raise ValueError(f'{source} 的目标图层无效或为空')
+        if source.casefold() in seen:
+            raise ValueError(f'原始颜色规则重复：{source}')
+        try:
+            scale = float(scale)
+        except (TypeError, ValueError):
+            raise ValueError(f'{source} 的线型比例必须为正数')
+        if not (scale > 0 and scale < 1e6):
+            raise ValueError(f'{source} 的线型比例必须为有限正数')
+        seen.add(source.casefold())
+        normalized.append({
+            'source_color': source, 'target_layer': layer,
+            'target_color': color, 'target_linetype': linetype,
+            'linetype_scale': scale, 'target_lineweight': lineweight,
+        })
+    if not normalized:
+        raise ValueError('没有可用的颜色映射规则')
+    return normalized
+
+
+def read_caxa_workbook_xlsx(path):
+    """Read drawing/name mapping and optional color-rule table from one workbook."""
+    rows = _read_first_visible_xlsx_rows(path)
+    header_index = None
+    columns = None
+    for index, (_, values) in enumerate(rows):
+        found = _is_name_header(values)
+        if found:
+            header_index, columns = index, found
+            break
+    if header_index is None:
+        # Backward-compatible two-column list without a header.
+        nonempty = [(i, row, values) for i, (row, values) in enumerate(rows) if any(values.values())]
+        if not nonempty:
+            raise ValueError('Excel 第一张工作表为空。')
+        first_values = nonempty[0][2]
+        if 3 in first_values:
+            raise ValueError('图纸映射表应有“图号、文件名、块名称”表头。')
+        header_index = nonempty[0][0] - 1
+        columns = (1, None, 2)
+
+    code_col, file_col, name_col = columns
+    drawing_items = []
+    for row_number, values in rows[header_index + 1:]:
+        if not any(values.values()):
+            break
+        if _is_name_header(values):
+            break
+        allowed_columns = {code_col, name_col} | ({file_col} if file_col else set())
+        extras = [col for col, value in values.items() if value and col not in allowed_columns]
+        if extras:
+            raise ValueError(f'Excel 第{row_number}行出现未定义的图纸映射列：{extras[0]}。请保留图号、文件名、块名称三列。')
+        code = values.get(code_col, '').strip()
+        filename = values.get(file_col, '').strip() if file_col else ''
+        block_name = values.get(name_col, '').strip()
+        if not code and not filename and not block_name:
+            continue
+        if not code or not block_name:
+            raise ValueError(f'Excel 第{row_number}行缺少图号或正式块名称。')
+        drawing_items.append((code, filename, block_name))
+    drawing_items = _validate_block_name_items(drawing_items)
+
+    color_header_index = None
+    color_columns = {}
+    for index, (_, values) in enumerate(rows):
+        header_values = {_header_key(v): col for col, v in values.items() if v}
+        layer_col = header_values.get('线层') or header_values.get('目标图层')
+        scale_col = header_values.get('线型比例')
+        linetype_col = header_values.get('线型') or header_values.get('对象线型')
+        lineweight_col = header_values.get('线宽') or header_values.get('对象线宽')
+        color_col = header_values.get('颜色') or header_values.get('对象颜色')
+        source_col = (header_values.get('原始颜色') or header_values.get('源颜色')
+                      or header_values.get('拾取颜色'))
+        if layer_col and scale_col and linetype_col and lineweight_col and color_col:
+            color_header_index = index
+            color_columns = {
+                'layer': layer_col, 'scale': scale_col, 'linetype': linetype_col,
+                'lineweight': lineweight_col, 'color': color_col, 'source': source_col,
+            }
+            break
+
+    rules = {r['source_color']: dict(r) for r in DEFAULT_CAXA_COLOR_RULES}
+    if color_header_index is not None:
+        explicit_rows = []
+        cols = color_columns
+        for row_number, values in rows[color_header_index + 1:]:
+            if not any(values.values()):
+                break
+            source = values.get(cols['source'], '').strip() if cols['source'] else ''
+            if not cols['source']:
+                # Legacy workbook layout has only target properties. Its known
+                # 0-layer/ByLayer row is compatible with the operator-confirmed
+                # white+black-white default; other mappings remain the explicit
+                # user-confirmed defaults above.
+                continue
+            if not source:
+                continue
+            raw_scale = values.get(cols['scale'], '').strip()
+            scale = 1.0 if not raw_scale else raw_scale
+            explicit_rows.append({
+                'source_color': source,
+                'target_layer': values.get(cols['layer'], '').strip(),
+                'target_color': values.get(cols['color'], '').strip() or 'ByLayer',
+                'target_linetype': values.get(cols['linetype'], '').strip() or 'ByLayer',
+                'linetype_scale': scale,
+                'target_lineweight': values.get(cols['lineweight'], '').strip() or 'ByLayer',
+            })
+        if explicit_rows:
+            for rule in _validate_cad_color_rules(explicit_rows):
+                rules[rule['source_color']] = rule
+
+    # Stable order: the five confirmed source groups first, then any additional
+    # explicit source-color rows in the order they appear in the workbook.
+    ordered = []
+    for name in CAXA_COLOR_ORDER:
+        ordered.append(rules.pop(name))
+    ordered.extend(rules.values())
+    color_rules = _validate_cad_color_rules(ordered)
+    if not drawing_items:
+        raise ValueError('Excel 中没有有效的图纸与正式块名称映射。')
+    return {'drawing_items': drawing_items, 'color_rules': color_rules}
+
+
+def read_block_names_xlsx(path):
+    """Backward-compatible reader returning (code, block_name) pairs."""
+    data = read_caxa_workbook_xlsx(path)
+    return [(code, block_name) for code, _, block_name in data['drawing_items']]
+
+
+def import_block_names_xlsx(c, path):
+    """Import only the authoritative drawing/name mapping from an .xlsx workbook."""
+    items = read_caxa_workbook_xlsx(path)['drawing_items']
+    return _store_block_name_items(c, items, source_label='Excel .xlsx')
+
+
+def import_caxa_workbook_xlsx(c, path):
+    """Atomically import drawing names and the color-to-layer rules from one workbook."""
+    data = read_caxa_workbook_xlsx(path)
+    items = _validate_block_name_items(data['drawing_items'])
+    rules = _validate_cad_color_rules(data['color_rules'])
+    with c:
+        c.execute('DELETE FROM block_name_map')
+        for code, drawing_filename, block_name in items:
+            c.execute('''INSERT INTO block_name_map(code,drawing_filename,block_name,imported_at)
+                         VALUES(?,?,?,?)''', (code, drawing_filename, block_name, now()))
+        c.execute('DELETE FROM cad_color_rules')
+        for rule in rules:
+            c.execute('''INSERT INTO cad_color_rules(
+                source_color,target_layer,target_color,target_linetype,linetype_scale,target_lineweight,imported_at
+            ) VALUES(?,?,?,?,?,?,?)''', (
+                rule['source_color'], rule['target_layer'], rule['target_color'],
+                rule['target_linetype'], rule['linetype_scale'], rule['target_lineweight'], now()
+            ))
+        resolve_block_names(c)
+        add_event(c, '导入CAXA配置Excel', '', f'图纸映射 {len(items)} 项；颜色规则 {len(rules)} 项')
+    return {'drawing_count': len(items), 'color_rule_count': len(rules)}
+
+
+def get_cad_color_rules(c):
+    rows = c.execute('''SELECT source_color,target_layer,target_color,target_linetype,
+                        linetype_scale,target_lineweight FROM cad_color_rules''').fetchall()
+    if not rows:
+        return [dict(rule) for rule in DEFAULT_CAXA_COLOR_RULES]
+    by_name = {row['source_color'].casefold(): dict(row) for row in rows}
+    ordered = [by_name[name.casefold()] for name in CAXA_COLOR_ORDER if name.casefold() in by_name]
+    ordered.extend(value for key, value in by_name.items() if key not in {n.casefold() for n in CAXA_COLOR_ORDER})
+    return ordered
+
+
+def get_cad_color_rule(c, source_color):
+    source = _normalise_source_color(source_color)
+    return next((rule for rule in get_cad_color_rules(c)
+                 if rule['source_color'].casefold() == source.casefold()), None)
+
+
+
+
+def import_block_names(c, content):
+    """Legacy text-list importer retained for database compatibility; UI uses .xlsx."""
+    reader = csv.reader(io.StringIO(content))
+    items = []
+    for cells in reader:
+        if not cells or not any(str(x).strip() for x in cells):
+            continue
+        first = str(cells[0]).strip().lstrip('\ufeff')
+        second = str(cells[1]).strip() if len(cells) > 1 else ''
+        if first.casefold() in ('块名称', '正式块名称', '图符名称', 'block_name', 'symbol_name') and not second:
+            continue
+        if first.casefold() in ('图号', '编号', 'code', 'drawing_code') and second.casefold() in (
+                '正式块名称', '块名称', '图符名称', 'block_name', 'symbol_name', '名称'):
+            continue
+        if second:
+            code = first
+            block_name = second
+        else:
+            block_name = first.strip().strip('"').strip("'")
+            if '_' not in block_name:
+                raise ValueError(f'无法从正式块名称提取图号：{block_name}')
+            code = block_name.split('_', 1)[0].strip()
+        items.append((code, block_name))
+    return _store_block_name_items(c, items, source_label='旧版 TXT/CSV')
+
 def resolve_block_names(c):
-    """Resolve imported symbol names against present drawings by exact code only."""
+    """Resolve by exact drawing code and, when supplied, exact EXB basename."""
     drawings=c.execute('SELECT path,code FROM drawings WHERE present=1').fetchall()
     by_code={}
     for drawing in drawings:
         by_code.setdefault(drawing['code'].casefold(),[]).append(drawing['path'])
-    entries=c.execute('SELECT code FROM block_name_map').fetchall()
+    entries=c.execute('SELECT code,drawing_filename FROM block_name_map').fetchall()
     for entry in entries:
         matches=by_code.get(entry['code'].casefold(),[])
+        filename=entry['drawing_filename'].casefold()
+        if filename:
+            matches=[path for path in matches if Path(path).name.casefold()==filename]
         if len(matches)==1:
             status='已匹配'; path=matches[0]
         elif not matches:
-            status='未找到对应图纸'; path=''
+            status='未找到对应图纸' if not filename else '文件名不一致或未找到对应图纸'; path=''
         else:
             status='同图号对应多张图纸'; path=''
         c.execute('UPDATE block_name_map SET matched_path=?,match_status=? WHERE code=?',
@@ -537,10 +930,13 @@ def block_name_for_path(c, path):
         return {'code':drawing['code'],'block_name':'','matched_path':'','status':'清单中没有此图号'}
     if row['match_status']!='已匹配':
         return {'code':drawing['code'],'block_name':'','matched_path':'','status':row['match_status']}
+    if row['drawing_filename'] and Path(path).name.casefold()!=row['drawing_filename'].casefold():
+        return {'code':drawing['code'],'block_name':'','matched_path':row['matched_path'],
+                'status':'文件名与 Excel 映射不一致'}
     if row['matched_path']!=str(path):
         return {'code':drawing['code'],'block_name':'','matched_path':row['matched_path'],'status':'图号匹配路径不一致'}
-    return {'code':drawing['code'],'block_name':row['block_name'],
-            'matched_path':row['matched_path'],'status':'已匹配'}
+    return {'code':drawing['code'],'drawing_filename':row['drawing_filename'],
+            'block_name':row['block_name'],'matched_path':row['matched_path'],'status':'已匹配'}
 
 
 def block_name_summary(c):

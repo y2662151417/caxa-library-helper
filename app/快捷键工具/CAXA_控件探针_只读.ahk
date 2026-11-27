@@ -2,6 +2,10 @@
 #SingleInstance Force
 Persistent
 
+; CI-only parse mode: compile this standalone probe, then exit without opening dialogs.
+if A_Args.Length > 0 && A_Args[1] = "--syntax-check"
+    ExitApp 0
+
 ; Read-only staged control probe for fabricated CAXA drawings only.
 ; Captures the CAD HWND BEFORE opening its own dialogs: never inspect "A"
 ; after a confirmation box, because it can point to the probe UI instead.

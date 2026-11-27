@@ -14,6 +14,8 @@ import bridge
 import autoread
 import preflight
 import verify_action
+import clipboard_utils
+import cad_window
 
 # Must stay disabled until Windows+CAXA 2024 controls are actually verified.
 ENABLE_UNVERIFIED_AUTO_CAPTURE = False
@@ -441,28 +443,25 @@ class App:
         except Exception as e:messagebox.showerror('名单导入失败',str(e))
 
     def import_block_names(self):
-        filename=filedialog.askopenfilename(title='导入正式图符名称清单（TXT或CSV）',
-            filetypes=[('块名称清单 TXT / CSV','*.txt *.csv'),('所有文件','*.*')])
+        filename=filedialog.askopenfilename(title='导入 CAXA 配置 Excel（图纸名称 + 颜色规则）',
+            filetypes=[('Excel 工作簿','*.xlsx')])
         if not filename:return
         try:
-            try:text=Path(filename).read_text(encoding='utf-8-sig')
-            except UnicodeDecodeError:text=Path(filename).read_text(encoding='gb18030')
-            n=core.import_block_names(self.c,text)
+            result=core.import_caxa_workbook_xlsx(self.c,filename)
             rows=core.block_name_summary(self.c)
             found=sum(x['match_status']=='已匹配' for x in rows)
             missing=[x for x in rows if x['match_status']!='已匹配']
-            self.refresh()
-            # A block-name import changes the task signature. Republish the
-            # currently selected task if its work copy and view plan remain valid.
-            self.sync_job()
             detail='\n'.join(f"{x['code']}：{x['match_status']}" for x in missing[:12])
-            message=f'导入 {n} 个正式块名称，按完整图号准确匹配 {found}/{n} 项。'
+            message=(f"导入图纸映射 {result['drawing_count']} 项，按图号和 Excel 文件名准确匹配 {found}/{result['drawing_count']} 项。"
+                     f"\n导入颜色规则 {result['color_rule_count']} 项。")
             if detail:
                 message+='\n\n未匹配项（最多显示12项）：\n'+detail
-            message+='\n\n只有唯一匹配的块名称才会传给 CAXA 自动填写；不匹配项不会使用相似图号猜测。'
-            messagebox.showinfo('块名称清单导入完成',message)
+            message+='\n\n正式块名称与颜色规则已保存在本机数据库；不需要每次启动助手都重新导入。'
+            messagebox.showinfo('CAXA 配置导入完成',message,parent=self.root)
+            self.refresh()
+            self.sync_job()
         except Exception as e:
-            messagebox.showerror('块名称清单导入失败',str(e))
+            messagebox.showerror('Excel 导入失败',str(e),parent=self.root)
 
     def require(self):
         if not self.path:
@@ -479,7 +478,7 @@ class App:
             messagebox.showwarning('命名类型','此操作只用于已核对的垂直重锤拉紧装置主体图。下级图请先确认不同规则。')
             return
         try:
-            text=self.root.clipboard_get()
+            text=clipboard_utils.read_clipboard_text(self.root)
             parsed=core.parse_clipboard(text)
             values=[parsed.get(k,'') for k in core.FIELDS]
             row=core.get_drawing(self.c,self.path)
@@ -501,7 +500,7 @@ class App:
     def from_clipboard(self):
         if not self.require(): return
         try:
-            text=self.root.clipboard_get()
+            text=clipboard_utils.read_clipboard_text(self.root)
             params=core.parse_clipboard(text)
             if not params:
                 raise ValueError('未找到已知字段。可能是复制了 CAD 对象而不是属性表格文字；也可能字段名称不同。')
@@ -530,27 +529,63 @@ class App:
         except Exception as e:
             messagebox.showwarning('命名检查未通过',str(e))
 
-    def copy_name(self):
-        if not self.require(): return
+    def verify_selected_cad_document(self):
+        """Verify the selected source, its registered work copy, and the live CAXA caption."""
+        if not self.path:
+            return False, '请先在助手中选择一张图纸。'
+        drawing=core.get_drawing(self.c,self.path)
+        if not drawing or not drawing['present']:
+            return False, '当前选择不在有效的源图清单中。'
+        if core.file_changed(drawing):
+            return False, '源图或已复核工作副本发生变化，请先刷新并核对。'
+        if not drawing['working_path']:
+            return False, '当前图纸还没有登记工作副本。请先点击“打开图纸”创建并打开工作副本。'
+        source=Path(drawing['path'])
+        work=Path(drawing['working_path'])
+        root=Path(drawing['root'])
+        if source.is_symlink() or not source.is_file():
+            return False, '源 EXB 不存在或路径异常，已禁止复制。'
+        if work.is_symlink() or not work.is_file():
+            return False, '登记的工作副本不存在或路径异常，请重新创建工作副本。'
+        if core.path_contains_symlink(root,source) or core.path_contains_symlink(root,work):
+            return False, '源图或工作副本路径包含符号链接，无法安全核验。'
+        if not drawing['working_base_sha256'] or drawing['working_base_sha256'] != drawing['sha256']:
+            return False, '工作副本不是基于当前登记源图创建的，请重新创建并核对。'
+        try:
+            if core.work_copy_aliases_source(source,work):
+                return False, '工作副本与原始 EXB 实际指向同一文件，已禁止复制。'
+        except ValueError as exc:
+            return False, str(exc)
+        return cad_window.verify_current_document(core.storage_dir(),work.name)
+
+    def copy_official_block_name(self,parent=None):
+        parent=parent or self.root
+        if not self.path:
+            messagebox.showwarning('未选图纸','请先选择一张图纸。',parent=parent)
+            return False
         info=core.block_name_for_path(self.c,self.path)
-        if info['status']=='已匹配':
-            name=info['block_name']
-            source_label='正式图符名称'
-        elif info['status']=='未导入块名称清单':
-            name=self.name_var.get().strip()
-            source_label='本地建议名称（尚未导入正式块名称清单）'
-        else:
+        if info['status']!='已匹配' or not info['block_name']:
             messagebox.showwarning('正式块名称未匹配',
-                f"当前图号：{info['code']}\n匹配状态：{info['status']}\n\n"
-                '为避免把其他图纸的块名称填入当前图，请先检查并修正块名称清单。')
-            return
-        if not name:
-            messagebox.showwarning('无法复制','当前没有可复制的名称。')
-            return
-        self.root.clipboard_clear()
-        self.root.clipboard_append(name)
-        self.root.update()
-        self.status_var.set(source_label+'已复制；请核对 CAXA 原生属性和图库类别。')
+                f"当前图号：{info['code']}\\n匹配状态：{info['status']}\\n\\n"
+                '请核对 Excel 中的图号与正式块名称；不会使用本地建议名称或相似图号代替。',
+                parent=parent)
+            return False
+        ok,reason=self.verify_selected_cad_document()
+        if not ok:
+            messagebox.showwarning('当前 CAXA 图纸未通过核验',reason,parent=parent)
+            return False
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(info['block_name'])
+            self.root.update()
+            self.status_var.set('正式块名称已复制；请在 CAXA 中人工核对并粘贴。')
+            return True
+        except Exception as e:
+            messagebox.showerror('复制失败',str(e),parent=parent)
+            return False
+
+    def copy_name(self):
+        return self.copy_official_block_name(parent=self.root)
 
     def update_plan(self):
         if not self.require(): return False

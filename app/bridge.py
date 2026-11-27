@@ -14,14 +14,21 @@ import re
 
 PANEL_ACTIONS = {
     "bind_cad", "duplicate_line_cleanup", "fill_symbol_name",
-    "open_pick_filter", "open_properties", "restore_pick_filter",
+    "set_pick_filter", "restore_pick_filter", "apply_color_layer",
+    "calibrate_layer_combo", "calibrate_color_combo", "calibrate_linetype_combo", "calibrate_lineweight_combo",
     "start_view_guide", "next_view", "previous_view", "show_view_guide", "end_view_guide",
     "define_symbol", "edit_symbol_attributes", "fill_titleblock_attributes", "finish_gallery_insert",
     "calibrate_define", "calibrate_attr_edit", "calibrate_attr_fill", "calibrate_symbol_name", "calibrate_gallery_finish",
-    "probe_cad_controls",
+    "probe_cad_controls", "probe_pick_filter_dialog", "probe_properties_palette",
 }
 
-def request_panel_action(storage: Path, action: str, signature: str) -> Path:
+def request_panel_action(storage: Path, action: str, signature: str, *,
+                         source_color: str | None = None,
+                         target_layer: str | None = None,
+                         target_color: str | None = None,
+                         target_linetype: str | None = None,
+                         linetype_scale: float | None = None,
+                         target_lineweight: str | None = None) -> Path:
     """Queue one allow-listed UI action for the local AHK controller.
 
     The request is atomically replaced and bound to the exact published job.
@@ -34,12 +41,49 @@ def request_panel_action(storage: Path, action: str, signature: str) -> Path:
     storage.mkdir(parents=True, exist_ok=True)
     conf = configparser.ConfigParser(interpolation=None)
     conf.optionxform = str
+    allowed_colors = {"红色", "绿色", "蓝色", "洋红色", "白色+黑白色"}
+    if action in {"set_pick_filter", "apply_color_layer"}:
+        if source_color not in allowed_colors:
+            raise ValueError("不允许的颜色筛选项")
+    elif source_color is not None:
+        raise ValueError("当前操作不接受源颜色参数")
+    if action == "apply_color_layer":
+        if (not isinstance(target_layer, str) or not target_layer.strip()
+                or len(target_layer.strip()) > 64
+                or any(ord(ch) < 32 or ch in "=;#[]|" for ch in target_layer)):
+            raise ValueError("目标图层名称无效，拒绝发送")
+        for label, value in (("对象颜色", target_color),
+                             ("对象线型", target_linetype),
+                             ("对象线宽", target_lineweight)):
+            if (not isinstance(value, str) or not value.strip()
+                    or len(value.strip()) > 32
+                    or any(ord(ch) < 32 or ch in "=;#[]|" for ch in value)):
+                raise ValueError(f"{label}配置无效，拒绝发送")
+        if (isinstance(linetype_scale, bool)
+                or not isinstance(linetype_scale, (int, float))
+                or linetype_scale <= 0 or linetype_scale > 1000):
+            raise ValueError("线型比例必须是 0 到 1000 之间的正数")
+    elif any(value is not None for value in
+             (target_layer, target_color, target_linetype, linetype_scale, target_lineweight)):
+        raise ValueError("当前操作不接受特性参数")
     conf["request"] = {
         "token": secrets.token_hex(16),
         "action": action,
         "job_signature": signature,
-        "created_at": str(time.time()),
+        "created_at": str(int(time.time())),
     }
+    if source_color is not None:
+        conf["request"]["source_color"] = source_color
+    if target_layer is not None:
+        conf["request"]["target_layer"] = target_layer.strip()
+    if target_color is not None:
+        conf["request"]["target_color"] = target_color.strip()
+    if target_linetype is not None:
+        conf["request"]["target_linetype"] = target_linetype.strip()
+    if linetype_scale is not None:
+        conf["request"]["linetype_scale"] = str(float(linetype_scale))
+    if target_lineweight is not None:
+        conf["request"]["target_lineweight"] = target_lineweight.strip()
     target = storage / "panel_action.ini"
     fd, tmpname = tempfile.mkstemp(prefix=".panel_action_", suffix=".tmp", dir=str(storage))
     try:

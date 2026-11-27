@@ -8,7 +8,7 @@ import copy, json, os, tempfile, sys, ctypes, configparser, time
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
-import core, profiles, workflow_v08, router_v11, autoread, bridge, ahk_runtime
+import core, profiles, workflow_v08, router_v11, autoread, bridge, ahk_runtime, clipboard_utils
 
 class Panel:
     def __init__(self, app):
@@ -17,11 +17,11 @@ class Panel:
         self.win.title('CAXA 制作控制台')
         sw=max(1024,self.win.winfo_screenwidth())
         sh=max(720,self.win.winfo_screenheight())
-        self._expanded_geometry=f'340x310+{max(10,sw-360)}+{max(35,min(90,sh-360))}'
-        self._collapsed_geometry=f'300x70+{max(10,sw-320)}+{max(35,min(90,sh-120))}'
+        self._expanded_geometry=f'320x265+{max(10,sw-340)}+{max(35,min(90,sh-315))}'
+        self._collapsed_geometry=f'270x58+{max(10,sw-290)}+{max(35,min(90,sh-110))}'
         self.win.geometry(self._expanded_geometry)
-        self.win.minsize(320,270)
-        self.win.maxsize(390,390)
+        self.win.minsize(300,245)
+        self.win.maxsize(340,285)
         self.win.resizable(False,False)
         self.win.attributes('-topmost',True)
         self.win.protocol('WM_DELETE_WINDOW',self.hide_panel)
@@ -42,7 +42,10 @@ class Panel:
         self._color_flow_profile_hash=''
         self.last_path=None
         self.context=tk.StringVar(value='当前未选择图纸')
-        self.block_name_status=tk.StringVar(value='正式块名称：尚未匹配')
+        self.block_name_status=tk.StringVar(value='正式名称：尚未匹配')
+        self.copy_name_button=None
+        self._color_buttons={}
+        self.apply_properties_button=None
         self.status=tk.StringVar(value='正在检查 CAD 控制器…')
         self.recommended=tk.StringVar(value='先选择图纸')
         self.action_reason=tk.StringVar(value='点击“选择图纸”，选中一行后点击“打开图纸”。系统会自动创建工作副本。')
@@ -64,21 +67,23 @@ class Panel:
 
 
     def _build_compact_ui(self):
-        self.normal_frame=ttk.Frame(self.win,padding=8)
+        self.normal_frame=ttk.Frame(self.win,padding=6)
         self.normal_frame.pack(fill='both',expand=True)
         header=ttk.Frame(self.normal_frame);header.pack(fill='x')
-        ttk.Label(header,text='CAXA 制作助手',font=('Microsoft YaHei UI',10,'bold')).pack(side='left')
-        ttk.Label(header,text='● 置顶',foreground='#16834a').pack(side='left',padx=7)
+        ttk.Label(header,text='CAXA 制作助手',font=('Microsoft YaHei UI',9,'bold')).pack(side='left')
+        ttk.Button(header,text='换图',width=4,command=self.open_workbench).pack(side='right',padx=(3,0))
+        ttk.Button(header,text='⋯',width=3,command=self.open_settings_window).pack(side='right',padx=(3,0))
         ttk.Button(header,text='—',width=3,command=self.collapse_panel).pack(side='right')
         self.page_host=ttk.Frame(self.normal_frame)
-        self.page_host.pack(fill='both',expand=True,pady=(5,2))
-        ttk.Separator(self.normal_frame).pack(fill='x',pady=(3,5))
-        ttk.Label(self.normal_frame,textvariable=self.status,wraplength=330,
-                  foreground='#555').pack(anchor='w')
-        self.collapsed_frame=ttk.Frame(self.win,padding=6)
+        self.page_host.pack(fill='both',expand=True,pady=(3,1))
+        ttk.Separator(self.normal_frame).pack(fill='x',pady=(2,3))
+        ttk.Label(self.normal_frame,textvariable=self.status,wraplength=285,
+                  foreground='#666',font=('Microsoft YaHei UI',8)).pack(anchor='w')
+        self.collapsed_frame=ttk.Frame(self.win,padding=5)
         collapsed_row=ttk.Frame(self.collapsed_frame);collapsed_row.pack(fill='x')
         ttk.Label(collapsed_row,text='CAXA',font=('Microsoft YaHei UI',9,'bold')).pack(side='left')
-        ttk.Label(collapsed_row,textvariable=self.context,wraplength=190).pack(side='left',fill='x',expand=True,padx=5)
+        ttk.Label(collapsed_row,textvariable=self.context,wraplength=150,
+                  font=('Microsoft YaHei UI',8)).pack(side='left',fill='x',expand=True,padx=5)
         ttk.Button(collapsed_row,text='展开',command=self.expand_panel).pack(side='right')
         self._show_home_page()
 
@@ -89,30 +94,65 @@ class Panel:
         self._page_frame=None
         self._dialogs.clear()
         self.color_combo=None
+        self._color_buttons={}
+        self.apply_properties_button=None
         self.view_tree=None
+        self.copy_name_button=None
 
     def _show_home_page(self):
         self._clear_page_host()
         self._page_key='home'
         self.win.title('CAXA 制作助手')
         self.win.geometry(self._expanded_geometry)
-        self.win.minsize(320,270);self.win.maxsize(390,390)
-        body=ttk.Frame(self.page_host,padding=3);body.pack(fill='both',expand=True)
-        ttk.Label(body,textvariable=self.context,wraplength=330,
-                  font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(5,2))
-        ttk.Label(body,textvariable=self.block_name_status,wraplength=330,
-                  foreground='#24527a').pack(anchor='w',pady=(0,5))
-        ttk.Label(body,textvariable=self.app.view_template_summary_var,wraplength=330,
-                  foreground='#666').pack(anchor='w',pady=(0,7))
-        self.main_button=ttk.Button(body,textvariable=self.recommended,command=self.do_recommended)
-        self.main_button.pack(fill='x',pady=(2,3),ipady=8)
-        ttk.Label(body,textvariable=self.action_reason,wraplength=330,
-                  foreground='#666').pack(anchor='w',pady=(0,9))
-        row=ttk.Frame(body);row.pack(fill='x')
-        for col in range(3):row.columnconfigure(col,weight=1)
-        ttk.Button(row,text='更多操作',command=self.open_actions_page).grid(row=0,column=0,sticky='ew',padx=(0,3))
-        ttk.Button(row,text='选择图纸',command=self.open_workbench).grid(row=0,column=1,sticky='ew',padx=3)
-        ttk.Button(row,text='设置',command=self.open_settings_window).grid(row=0,column=2,sticky='ew',padx=(3,0))
+        self.win.minsize(300,245);self.win.maxsize(340,285)
+        body=ttk.Frame(self.page_host,padding=(1,2,1,0));body.pack(fill='both',expand=True)
+        ttk.Label(body,textvariable=self.context,wraplength=292,
+                  font=('Microsoft YaHei UI',8,'bold')).pack(anchor='w',pady=(0,1))
+        ttk.Label(body,textvariable=self.block_name_status,wraplength=292,
+                  foreground='#24527a',font=('Microsoft YaHei UI',8)).pack(anchor='w',pady=(0,3))
+
+        color_row=ttk.Frame(body);color_row.pack(fill='x',pady=(0,2))
+        color_specs=[
+            ('红色','红色','#D92D20','#FFFFFF'),
+            ('绿色','绿色','#16A34A','#FFFFFF'),
+            ('蓝色','蓝色','#1D4ED8','#FFFFFF'),
+            ('洋红','洋红色','#D000C8','#FFFFFF'),
+            ('白+黑','白色+黑白色','#FFFFFF','#111111'),
+        ]
+        for col,(label,source,bg,fg) in enumerate(color_specs):
+            color_row.columnconfigure(col,weight=1)
+            button=tk.Button(color_row,text=label,relief='raised',bd=1,
+                bg=bg,fg=fg,activebackground=bg,activeforeground=fg,
+                font=('Microsoft YaHei UI',8),height=1,
+                command=lambda value=source:self.open_color_filter(value))
+            button.grid(row=0,column=col,sticky='ew',padx=1,pady=1)
+            self._color_buttons[source]=button
+
+        ttk.Button(body,text='恢复全选',command=self.restore_color_filter).pack(
+            fill='x',pady=(1,3),ipady=1)
+        self.apply_properties_button=ttk.Button(body,text='一键设置特性',
+            command=self.open_color_properties)
+        self.apply_properties_button.pack(fill='x',pady=(0,3),ipady=2)
+        actions=ttk.Frame(body);actions.pack(fill='x',pady=(0,3))
+        actions.columnconfigure(0,weight=1);actions.columnconfigure(1,weight=1)
+        ttk.Button(actions,text='删除重线',command=self.delete_duplicate_lines).grid(
+            row=0,column=0,sticky='ew',padx=(0,2))
+        ttk.Button(actions,text='定义属性块',command=self.define_symbol).grid(
+            row=0,column=1,sticky='ew',padx=(2,0))
+        self.copy_name_button=ttk.Button(body,text='复制正式块名称',command=self.copy_block_name)
+        self.copy_name_button.pack(fill='x')
+        self.refresh_color_buttons()
+
+    def refresh_color_buttons(self):
+        try:
+            configured={r['source_color'] for r in core.get_cad_color_rules(self.app.c)}
+        except Exception:
+            configured=set()
+        for source,button in self._color_buttons.items():
+            try:
+                button.configure(state='normal' if source in configured else 'disabled')
+            except tk.TclError:
+                pass
 
     def open_actions_page(self):
         w=self._dialog('actions','操作入口','350x420')
@@ -122,7 +162,7 @@ class Panel:
                   wraplength=320,foreground='#666').pack(anchor='w',pady=(0,8))
         ttk.Button(w,text='清理图纸',command=self.open_cleanup_window).pack(fill='x',pady=3,ipady=4)
         ttk.Button(w,text='开始定义图符',command=self.define_symbol).pack(fill='x',pady=3,ipady=4)
-        ttk.Button(w,text='属性与入库',command=self.open_insert_window).pack(fill='x',pady=3,ipady=4)
+        # 属性核对和最终入库由操作者在 CAXA 中完成；助手不提供提交入口。
         ttk.Separator(w).pack(fill='x',pady=7)
         ttk.Button(w,text='连接当前 CAXA',command=self.connect_cad).pack(fill='x',pady=3)
         ttk.Separator(w).pack(fill='x',pady=6)
@@ -135,14 +175,14 @@ class Panel:
         self.normal_frame.pack_forget()
         self.collapsed_frame.pack(fill='both',expand=True)
         self.win.geometry(self._collapsed_geometry)
-        self.win.minsize(290,65);self.win.maxsize(360,90)
+        self.win.minsize(260,52);self.win.maxsize(310,70)
 
     def expand_panel(self):
         if not self._collapsed:return
         self._collapsed=False
         self.collapsed_frame.pack_forget()
         self.normal_frame.pack(fill='both',expand=True)
-        self.win.minsize(320,270);self.win.maxsize(390,390)
+        self.win.minsize(285,210);self.win.maxsize(340,270)
         self.win.geometry(self._expanded_geometry)
         self.win.attributes('-topmost',True)
 
@@ -201,7 +241,7 @@ class Panel:
                   wraplength=315,foreground='#555').pack(anchor='w',pady=4)
         ttk.Button(w,text='启动删除重复线',command=self.delete_duplicate_lines).pack(fill='x',pady=8,ipady=6)
         ttk.Separator(w).pack(fill='x',pady=5)
-        ttk.Label(w,text='颜色／图层自动处理暂不开放：红、绿、白的公司标准映射尚未完整核实。这里不要求你逐条新增规则，也不会猜测图层或线型。',
+        ttk.Label(w,text='颜色映射已从配置 Excel 读取。拾取过滤和属性批量写入正在校准 CAXA 2024 控件；校准前不会猜测控件位置或自动改图。',
                   wraplength=315,foreground='#8a5a20').pack(anchor='w',pady=5)
     def open_views_window(self):
         # This is a batch/type-level preference, not a per-drawing prompt.
@@ -324,9 +364,14 @@ class Panel:
         except Exception as e:
             messagebox.showwarning('尚不能标记完成',str(e),parent=self.win)
     def open_settings_window(self):
-        w=self._dialog('settings','设置','350x390')
+        w=self._dialog('settings','设置','350x430')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
+        ttk.Button(w,text='打开助手数据文件夹（诊断日志）',
+                   command=self.open_data_folder).pack(fill='x',pady=(0,5))
+        ttk.Label(w,text='如再次出现“面板请求过期”，请将 panel_action_expiry.log 发回。',
+                  wraplength=315,foreground='#8a5a20').pack(anchor='w',pady=(0,5))
+        ttk.Separator(w).pack(fill='x',pady=(0,5))
         ttk.Label(w,text='制作模板',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,4))
         self.combo=ttk.Combobox(w,state='readonly',textvariable=self.profile_display,
                                 values=[self._profile_display_name(x['id']) for x in self.profiles])
@@ -342,8 +387,9 @@ class Panel:
                    command=self.open_views_window).pack(fill='x',pady=4,ipady=4)
         ttk.Separator(w).pack(fill='x',pady=7)
         ttk.Button(w,text='首次校准其他 CAD 控件',command=self.open_calibration_window).pack(fill='x',pady=4,ipady=4)
-        ttk.Label(w,text='颜色、图层和线型规则由软件按已确认的公司标准维护。尚未核实的映射不会自动执行，也不需要你逐项配置。',
-                  wraplength=315,foreground='#666').pack(anchor='w',pady=7)
+        ttk.Label(w,text='颜色映射从配置 Excel 读取。对象颜色、线型、线宽均按 ByLayer；线型比例为 1。',
+                  wraplength=315,foreground='#666').pack(anchor='w',pady=5)
+        ttk.Button(w,text='查看颜色映射规则',command=self.show_colors).pack(fill='x',pady=3)
     def _enforce_topmost(self):
         if self._closed:return
         try:
@@ -452,18 +498,21 @@ class Panel:
                     self.update_color_rule_choices();self._save_profile_preference()
                     self.status.set('已切换图纸，模板恢复通用默认。请核实设备类别。')
             if row:
-                self.context.set('当前：'+row['code']+'｜'+row['name']+'\n状态：'+row['status'])
+                self.context.set(row['code']+'｜'+row['name'][:10])
                 try:
                     info=core.block_name_for_path(self.app.c,self.app.path)
-                    if info.get('status')=='已匹配':
-                        self.block_name_status.set('正式块名称：已匹配｜'+info.get('block_name',''))
-                    else:
-                        self.block_name_status.set('正式块名称：'+info.get('status','待匹配'))
+                    self.block_name_status.set('名称：已匹配' if info.get('status')=='已匹配'
+                                               else '名称：'+info.get('status','待匹配'))
+                    if self.copy_name_button is not None:
+                        self.copy_name_button.configure(state='normal' if info.get('status')=='已匹配' else 'disabled')
                 except Exception:
-                    self.block_name_status.set('正式块名称：暂不可读取')
+                    self.block_name_status.set('名称：暂不可读取')
             else:
                 self.context.set('尚未选择图纸')
-                self.block_name_status.set('正式块名称：请先在图纸管理中导入清单并选择图纸')
+                self.block_name_status.set('名称：请先选择图纸并导入 Excel')
+                if self.copy_name_button is not None:
+                    self.copy_name_button.configure(state='disabled')
+            self.refresh_color_buttons()
             self.update_recommendation()
             self._refresh_guide_status()
             if self.view_tree is not None:self._refresh_view_table()
@@ -489,15 +538,28 @@ class Panel:
             messagebox.showwarning('当前任务不可用',str(e),parent=self.win)
             return None
 
-    def _queue_ahk_action(self,action,confirm_text=None):
+    def _queue_ahk_action(self,action,confirm_text=None,source_color=None,target_layer=None,
+                          target_color=None,target_linetype=None,linetype_scale=None,target_lineweight=None):
         job=self._published_job()
         if not job:return False
+        if sys.platform=='win32':
+            pid=ahk_runtime.read_controller_pid(core.storage_dir())
+            build=ahk_runtime.read_controller_build(core.storage_dir())
+            if not self._pid_alive(pid):
+                self.status.set('CAXA 控制器未运行；请等待控制器连接后再操作。')
+                return False
+            if build!=ahk_runtime.CONTROLLER_BUILD_ID:
+                self.status.set('检测到旧版 CAXA 控制器。请在系统托盘中右键旧版 H 图标选择 Exit，然后重新启动制作助手。')
+                return False
         if confirm_text and not messagebox.askyesno('确认 CAXA 操作',confirm_text.format(
                 code=job.get('code',''),work=job.get('working_file','')),parent=self.win,default='no'):
             return False
         try:
-            bridge.request_panel_action(core.storage_dir(),action,job['job_signature'])
-            self.status.set('操作请求已发送；正在等待 CAXA 控制器核验当前图纸。')
+            bridge.request_panel_action(core.storage_dir(),action,job['job_signature'],
+                source_color=source_color,target_layer=target_layer,target_color=target_color,
+                target_linetype=target_linetype,linetype_scale=linetype_scale,
+                target_lineweight=target_lineweight)
+            self.status.set('操作请求已发送；正在核验当前 CAXA 图纸。')
             return True
         except Exception as e:
             messagebox.showerror('发送失败',str(e),parent=self.win)
@@ -526,7 +588,11 @@ class Panel:
             return
         pid=ahk_runtime.read_controller_pid(core.storage_dir())
         if self._pid_alive(pid):
-            self.status.set('CAXA 控制器已连接；可以直接使用上方操作。')
+            build=ahk_runtime.read_controller_build(core.storage_dir())
+            if build==ahk_runtime.CONTROLLER_BUILD_ID:
+                self.status.set(f'CAXA 控制器已连接（{build}）；可以直接使用上方操作。')
+            else:
+                self.status.set('检测到旧版 CAXA 控制器。请在系统托盘中右键旧版 H 图标选择 Exit，然后重新启动制作助手。')
             return
         try:
             self.status.set('正在准备并验证 CAXA 控制器…')
@@ -546,7 +612,11 @@ class Panel:
     def check_ahk_controller_start(self):
         pid=ahk_runtime.read_controller_pid(core.storage_dir())
         if self._pid_alive(pid):
-            self.status.set(f'CAXA 控制器已连接（PID {pid}）；可以开始操作。')
+            build=ahk_runtime.read_controller_build(core.storage_dir())
+            if build==ahk_runtime.CONTROLLER_BUILD_ID:
+                self.status.set(f'CAXA 控制器已连接（{build}；PID {pid}）；可以开始操作。')
+            else:
+                self.status.set('控制器版本不匹配；请退出系统托盘中的旧版 H 图标，再重新启动制作助手。')
             return
         root=core.storage_dir()
         marker_error=root/'ahk_controller_marker_error.log'
@@ -709,22 +779,36 @@ class Panel:
 
 
     def open_calibration_window(self):
-        w=self._dialog('calibration','首次校准','360x360')
+        w=self._dialog('calibration','首次校准','370x500')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
-        ttk.Label(w,text='定义图符不需要校准。仅在属性控件确实需要自动化时，才做一次对应校准。',
-                  wraplength=320,foreground='#555').pack(anchor='w',pady=(0,8))
+        ttk.Label(w,text='属性自动设置只需校准一次。先切换 CAXA 的“常用”选项卡，再点击对应按钮；鼠标移到目标下拉框上停留 8 秒，不要点击。',
+                  wraplength=335,foreground='#555').pack(anchor='w',pady=(0,8))
+        ttk.Label(w,text='一键设置特性（必需）',font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(2,3))
+        for label,action in (
+            ('校准图层下拉框','calibrate_layer_combo'),
+            ('校准颜色下拉框','calibrate_color_combo'),
+            ('校准线型下拉框','calibrate_linetype_combo'),
+            ('校准线宽下拉框','calibrate_lineweight_combo')):
+            ttk.Button(w,text=label,command=lambda a=action:self._begin_calibration(a,w,9000)).pack(fill='x',pady=2,ipady=2)
+        ttk.Button(w,text='诊断左侧特性栏（只读）',
+                   command=lambda:self._queue_ahk_action('probe_properties_palette')).pack(
+                       fill='x',pady=(5,2),ipady=2)
+        ttk.Label(w,text='先在测试图中框选少量对象，再运行诊断；仅读取属性字段和控件信息，不修改图纸。',
+                  wraplength=335,foreground='#666').pack(anchor='w',pady=(0,5))
+        ttk.Separator(w).pack(fill='x',pady=7)
+        ttk.Label(w,text='其他低频控件',font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(2,3))
         for label,action in (
             ('属性编辑按钮','calibrate_attr_edit'),
             ('标题栏属性填入按钮','calibrate_attr_fill'),
             ('图符名称输入框','calibrate_symbol_name'),
             ('图符入库完成按钮','calibrate_gallery_finish')):
-            ttk.Button(w,text=label,command=lambda a=action:self._begin_calibration(a,w)).pack(fill='x',pady=4,ipady=3)
+            ttk.Button(w,text=label,command=lambda a=action:self._begin_calibration(a,w)).pack(fill='x',pady=2,ipady=2)
 
-    def _begin_calibration(self,action,dialog):
+    def _begin_calibration(self,action,dialog,restore_ms=7200):
         if self._queue_ahk_action(action):
             self.win.withdraw()
-            self._schedule(7200,self._restore_after_calibration)
+            self._schedule(restore_ms,self._restore_after_calibration)
     def _restore_after_calibration(self):
         try:
             if self.win.winfo_exists():
@@ -733,17 +817,8 @@ class Panel:
         except tk.TclError:pass
 
     def copy_block_name(self):
-        if not self.require():return
-        info=core.block_name_for_path(self.app.c,self.app.path)
-        if info.get('status')!='已匹配' or not info.get('block_name'):
-            messagebox.showwarning('正式块名称未匹配',
-                '当前图纸没有按完整图号唯一匹配到正式块名称，不能复制候选名称。',parent=self.win)
-            return
-        try:
-            self.win.clipboard_clear();self.win.clipboard_append(info['block_name']);self.win.update()
-            self.status.set('正式块名称已复制：'+info['block_name'])
-        except Exception as e:messagebox.showerror('复制失败',str(e),parent=self.win)
-
+        if self.app.copy_official_block_name(parent=self.win):
+            self.status.set('正式块名称已复制；请在 CAXA 中人工核对并粘贴')
 
     def toggle_advanced(self):
         if self._page_key=='settings':
@@ -787,7 +862,7 @@ class Panel:
         elif action=='parse_name':self.parse_name()
         elif action=='prepare_views':self.prepare_views()
         elif action=='next':self.app.next_pending()
-        elif action=='review':self.open_insert_window()
+        elif action=='review':self.open_qc_page()
         elif action=='define_symbol':self.define_symbol()
         elif action=='cad_guide':self.open_actions_page()
         elif action=='configure_views':self.open_views_window()
@@ -860,70 +935,89 @@ class Panel:
         except Exception as e:
             self.color_rule_detail.set(str(e))
 
-    def open_color_filter(self):
+    def _cad_color_rule(self,source_color):
+        source=str(source_color or '').strip()
+        if not source:
+            raise workflow_v08.WorkflowError('请先点击一种颜色。')
+        rule=core.get_cad_color_rule(self.app.c,source)
+        if not rule:
+            raise workflow_v08.WorkflowError(f'Excel 配置中没有“{source}”的颜色规则，请重新导入配置工作簿。')
+        return rule
+
+    def open_color_filter(self,source_color):
         if not self.require():return
         try:
-            rule=self._selected_color_rule()
+            rule=self._cad_color_rule(source_color)
         except Exception as e:
-            messagebox.showwarning('颜色规则未配置',str(e),parent=self.win);return
-        if self._queue_ahk_action('open_pick_filter'):
+            self.status.set(str(e))
+            return
+        if self._queue_ahk_action('set_pick_filter',source_color=rule['source_color']):
             try:
-                self._color_flow_signature=bridge.read_active_job(core.storage_dir()/'active_job.ini').get('job_signature','')
+                self._color_flow_signature=bridge.read_active_job(
+                    core.storage_dir()/'active_job.ini').get('job_signature','')
             except Exception:
                 self._color_flow_signature=''
             self._color_flow_source=rule['source_color']
-            self._color_flow_profile_hash=workflow_v08.profile_fingerprint(self.current_profile())
-            self.status.set(f"已发送拾取过滤请求：源颜色【{rule['source_color']}】。在 CAXA 对话框中选择颜色条件后，仅框选机械视图区域。")
+            self.status.set(f"已发送{rule['source_color']}筛选请求；等待 CAXA 自动设置勾选状态，再点击“确定”并框选对象。")
 
     def open_color_properties(self):
         if not self.require():return
         try:
-            rule=self._selected_color_rule()
             current_job=self._published_job()
             if not current_job:return
             if not self._color_flow_signature or current_job.get('job_signature')!=self._color_flow_signature:
-                raise workflow_v08.WorkflowError('当前任务尚未在本面板启动颜色过滤，或图纸/名称/视图计划已变化。请先重新点击“打开颜色过滤”。')
-            if self._color_flow_source.casefold()!=rule['source_color'].casefold():
-                raise workflow_v08.WorkflowError('当前选择的源颜色与已启动的过滤规则不同，请重新打开过滤设置。')
-            if workflow_v08.profile_fingerprint(self.current_profile())!=self._color_flow_profile_hash:
-                raise workflow_v08.WorkflowError('颜色模板在过滤后发生变化，请重新打开过滤设置。')
+                raise workflow_v08.WorkflowError('请先点击一种颜色，确认过滤条件后，在 CAXA 中框选需要归层的对象。')
+            rule=self._cad_color_rule(self._color_flow_source)
+            target_layer=str(rule.get('target_layer') or '').strip()
+            if not target_layer:
+                raise workflow_v08.WorkflowError(f'Excel 中“{rule["source_color"]}”没有配置目标图层。')
+            if self._queue_ahk_action('apply_color_layer',source_color=rule['source_color'],
+                    target_layer=target_layer,target_color=rule['target_color'],
+                    target_linetype=rule['target_linetype'],linetype_scale=rule['linetype_scale'],
+                    target_lineweight=rule['target_lineweight']):
+                self.status.set(f"已发送特性设置请求：{rule['source_color']} → {target_layer}；请查看左侧特性栏核对执行结果，助手不会自动保存。")
         except Exception as e:
-            messagebox.showwarning('颜色处理状态不一致',str(e),parent=self.win);return
-        if not messagebox.askyesno('核对当前选集',
-            f"当前规则：{rule['source_color']} → {rule['target_layer']} / {rule['target_linetype']} / 比例 {rule['linetype_scale']}\n\n"
-            '你是否已经在 CAXA 中设置该源颜色过滤，并且只选中了当前工作副本中的机械视图对象？\n'
-            '不要包含图框、标题栏、尺寸或其他颜色组。',parent=self.win,default='no'):
-            return
-        if self._queue_ahk_action('open_properties'):
-            self.status.set('已发送属性面板请求。请在 CAXA 属性面板中手动设置并复核目标图层、线型和比例。')
+            self.status.set(str(e))
 
     def restore_color_filter(self):
         if not self.require():return
         if self._queue_ahk_action('restore_pick_filter'):
-            self.status.set('已发送拾取过滤设置请求；请在 CAXA 中恢复默认/全选过滤条件后确认。')
+            self.status.set('已发送恢复全选请求；请确认 CAXA 颜色列表恢复全选后点击“确定”。')
             self._color_flow_signature=''
             self._color_flow_source=''
-            self._color_flow_profile_hash=''
 
     def show_colors(self):
         try:
-            p=self.current_profile()
-            lines=['【颜色规则检查】','逐条检查当前模板；未配置的规则不会开放颜色处理按钮。','']
-            if not p.get('color_rules'):
-                lines.append('当前模板没有颜色规则。')
-            for rule in p.get('color_rules',[]):
-                try:
-                    ready=workflow_v08.validate_color_rule(p,rule['source_color'])
-                    lines.append(f"✓ {ready['source_color']} → {ready['target_layer']}；{ready['target_linetype']}；比例 {ready['linetype_scale']}；颜色 {ready.get('target_color') or '保持原色'}")
-                except Exception as e:
-                    lines.append(f"! {rule['source_color']}：未就绪（{e}）")
-            lines += ['','【操作方式】','面板使用 CAXA 原生命令 objectset 打开拾取过滤设置，再用 properties 打开选中对象属性面板。对象选择及目标属性修改由你在 CAXA 中完成。','', '【过滤与颜色风险】']
-            lines += ['• '+x for x in workflow_v08.color_filter_execution_cautions(p)]
-            lines += ['','该检查不意味着已经修改过 CAXA 图元。']
-            self._text_window('颜色规则预检','\n'.join(lines))
-            self.status.set('颜色规则已逐条检查；可执行的规则可从面板启动原生过滤/属性面板。')
+            rules=core.get_cad_color_rules(self.app.c)
+            lines=['【当前 Excel 颜色映射】','以下规则保存在本机数据库；重新导入配置 Excel 时整体更新。','']
+            for rule in rules:
+                lines.append(
+                    f"{rule['source_color']} → {rule['target_layer']}；"
+                    f"颜色 {rule['target_color']}；线型 {rule['target_linetype']}；"
+                    f"比例 {rule['linetype_scale']:g}；线宽 {rule['target_lineweight']}"
+                )
+            lines += [
+                '',
+                '【执行说明】',
+                '颜色按钮会自动设置 CAXA 拾取过滤对话框的颜色勾选状态；仍需在 CAXA 中点击确定。',
+                '一键设置特性直接读取 Excel 目标图层，并修改当前选集；首次使用需校准一次 CAXA 属性工具栏。',
+                '修改后检查左侧特性栏；助手不会自动保存 EXB。',
+            ]
+            self._text_window('颜色规则检查','\n'.join(lines))
         except Exception as e:
             messagebox.showwarning('颜色规则检查失败',str(e),parent=self.win)
+
+    def open_data_folder(self):
+        try:
+            folder=core.storage_dir()
+            folder.mkdir(parents=True,exist_ok=True)
+            if sys.platform=='win32':
+                os.startfile(str(folder))
+            else:
+                messagebox.showinfo('助手数据目录',str(folder),parent=self.win)
+        except Exception as e:
+            messagebox.showerror('无法打开数据目录',str(e),parent=self.win)
+
 
     def _save_profiles(self):
         for p in self.profiles: profiles.validate(p)
@@ -1011,7 +1105,7 @@ class Panel:
                 if cached and all(cached.get(k) for k in p['required_params']):
                     params={k:cached[k] for k in p['required_params']}
                 else:
-                    raw=self.win.clipboard_get()
+                    raw=clipboard_utils.read_clipboard_text(self.win)
                     params=profiles.parse_property_grid(raw,p)
             except Exception as e:
                 messagebox.showwarning('读取失败','本图没有可用缓存，请先复制参数栏的多行文字。\n'+str(e),parent=self.win);return
