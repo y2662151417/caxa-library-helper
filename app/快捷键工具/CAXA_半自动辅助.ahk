@@ -34,6 +34,8 @@ global galleryFillPendingSince := 0
 global galleryDialogNoticeShown := false
 global calibrationBusy := false
 global controllerMarker := dataDir "\ahk_controller.pid"
+global controllerBuildMarker := dataDir "\ahk_controller_build.txt"
+global controllerBuildId := "caxa-helper-v0.42.16"
 global cadExe := IniRead(cfgFile, "cad", "process", "")
 global isPaused := false
 ; The view guide only tracks explicit operator actions. It NEVER sends Enter,
