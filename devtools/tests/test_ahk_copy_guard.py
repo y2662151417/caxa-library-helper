@@ -12,7 +12,7 @@ class AHKCopyGuardTests(unittest.TestCase):
         body = source[start:end]
         self.assertIn('blockStatus != "已匹配" || blockName = ""', body)
         self.assertIn("titleHasExactWorkFile(originalTitle, workFile)", body)
-        self.assertIn("A_Clipboard := proposed", body)
+        self.assertIn("A_Clipboard := blockName", body)
         self.assertNotIn("suggested_name", body)
 
 
