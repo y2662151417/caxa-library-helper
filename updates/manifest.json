@@ -1,12 +1,12 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.42.16",
+  "version": "0.42.17",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
       "path": "app/ahk_runtime.py",
       "size": 13674,
-      "sha256": "8eeab2fd5027b28c99fb566f63cfa55be9d33a8eb324a90af6e401266db31f91"
+      "sha256": "eed9254e8b640dcf168db07fe33ed51f118e586fa4b3752b40d719436604ca34"
     },
     {
       "path": "app/app.py",
@@ -86,8 +86,8 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 112170,
-      "sha256": "dfedc931f5dc62fbb20d40ce0a1df62e67b28f2058a695830ae96e073c3c835f",
+      "size": 113377,
+      "sha256": "e5e20c5baaf6ca20492b8ebd355d246ee758c157b5b200f7169d22a39dc58e34",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E5%8D%8A%E8%87%AA%E5%8A%A8%E8%BE%85%E5%8A%A9.ahk"
     },
     {

@@ -35,7 +35,7 @@ global galleryDialogNoticeShown := false
 global calibrationBusy := false
 global controllerMarker := dataDir "\ahk_controller.pid"
 global controllerBuildMarker := dataDir "\ahk_controller_build.txt"
-global controllerBuildId := "caxa-helper-v0.42.16"
+global controllerBuildId := "caxa-helper-v0.42.17"
 global cadExe := IniRead(cfgFile, "cad", "process", "")
 global isPaused := false
 ; The view guide only tracks explicit operator actions. It NEVER sends Enter,
@@ -1197,15 +1197,37 @@ filterColorKey(value) {
     return ""
 }
 
+controlStyleValue(hwnd) {
+    ; Read native Win32 styles so group boxes and push buttons are never
+    ; mistaken for checkboxes merely because ControlGetChecked returns 0.
+    try {
+        api := A_PtrSize = 8 ? "GetWindowLongPtrW" : "GetWindowLongW"
+        return DllCall(api, "Ptr", hwnd, "Int", -16, A_PtrSize = 8 ? "Ptr" : "Int")
+    } catch {
+        return 0
+    }
+}
+
+isNativeCheckboxStyle(className, style) {
+    if className != "Button"
+        return false
+    buttonType := style & 0xF
+    return buttonType = 2 || buttonType = 3 || buttonType = 5 || buttonType = 6
+}
+
+isNativeGroupBoxStyle(className, style) {
+    return className = "Button" && (style & 0xF) = 7
+}
+
 findFilterCheckbox(labelItem, items, gx, gy, gr, gb) {
-    if labelItem["checked"] >= 0 && labelItem["class"] = "Button"
+    if isNativeCheckboxStyle(labelItem["class"], labelItem["style"])
         return labelItem["ctrl"]
     bestDistance := 999999
     targetControl := ""
     labelY := labelItem["y"] + labelItem["h"] / 2
     labelX := labelItem["x"]
     for item in items {
-        if item["class"] != "Button" || item["checked"] < 0
+        if !isNativeCheckboxStyle(item["class"], item["style"])
             continue
         cx := item["x"] + item["w"] / 2
         cy := item["y"] + item["h"] / 2
@@ -1290,13 +1312,17 @@ setPickFilterColor(expectedSignature, sourceColor) {
                 label := ControlGetText(ctrl, "ahk_id " dialogHwnd)
                 className := WinGetClass("ahk_id " controlHwnd)
                 ControlGetPos(&x, &y, &w, &h, ctrl, "ahk_id " dialogHwnd)
+                style := controlStyleValue(controlHwnd)
                 checked := -1
-                try checked := ControlGetChecked(ctrl, "ahk_id " dialogHwnd)
+                if isNativeCheckboxStyle(className, style) {
+                    try checked := ControlGetChecked(ctrl, "ahk_id " dialogHwnd)
+                }
                 item := Map("ctrl", ctrl, "text", normalizeFilterLabel(label),
-                    "class", className, "x", x, "y", y, "w", w, "h", h,
-                    "checked", checked)
+                    "class", className, "style", style, "hwnd", controlHwnd,
+                    "x", x, "y", y, "w", w, "h", h, "checked", checked)
                 items.Push(item)
-                if item["text"] = "颜色" && className = "Button" && w > 100 && h > 100
+                if item["text"] = "颜色" && isNativeGroupBoxStyle(className, style)
+                  && w > 100 && h > 100
                     colorGroup := item
             } catch {
             }
@@ -1896,11 +1922,19 @@ probePickFilterDialog(expectedSignature, sourceColor := "") {
             controlClass := "unavailable"
             controlId := "unavailable"
             checked := "n/a"
+            style := 0
+            styleText := "unavailable"
             itemsText := ""
             try controlText := ControlGetText(ctrl, "ahk_id " dialogHwnd)
             try controlClass := WinGetClass("ahk_id " controlHwnd)
             try controlId := String(DllCall("GetDlgCtrlID", "Ptr", controlHwnd, "Int"))
-            try checked := String(ControlGetChecked(ctrl, "ahk_id " dialogHwnd))
+            try {
+                style := controlStyleValue(controlHwnd)
+                styleText := Format("0x{:X}", style)
+            }
+            if isNativeCheckboxStyle(controlClass, style) {
+                try checked := String(ControlGetChecked(ctrl, "ahk_id " dialogHwnd))
+            }
             try {
                 items := ControlGetItems(ctrl, "ahk_id " dialogHwnd)
                 for _, item in items
@@ -1909,7 +1943,7 @@ probePickFilterDialog(expectedSignature, sourceColor := "") {
             cx := 0, cy := 0, cw := 0, ch := 0
             try ControlGetPos(&cx, &cy, &cw, &ch, ctrl, "ahk_id " dialogHwnd)
             report .= "#" . index . " | " . ctrl . " | HWND=" . controlHwnd
-                . " | ID=" . controlId . " | Class=" . controlClass
+                . " | ID=" . controlId . " | Class=" . controlClass . " | Style=" . styleText
                 . " | Checked=" . checked . " | Rect=" . cx . "," . cy . "," . cw . "," . ch
                 . " | Text=" . StrReplace(StrReplace(controlText, Chr(13), " "), Chr(10), " ")
                 . " | Items=" . itemsText
