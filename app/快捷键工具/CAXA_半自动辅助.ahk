@@ -10,8 +10,8 @@ Persistent
 if A_Args.Length > 0 && A_Args[1] = "--syntax-check"
     ExitApp 0
 
-; CAXA gallery assistant: intentionally no silent confirmation, save, delete or batch edits.
-; All CAD clicks require binding to the active process and one-time local calibration.
+; CAXA gallery assistant: no automatic save, delete or final gallery submission.
+; Selected-object property changes require an explicit panel action and signed work-copy task.
 
 SetTitleMatchMode 2
 CoordMode "Mouse", "Client"
@@ -475,8 +475,6 @@ PanelActionPoll() {
             probeCaxaControls(signature)
         } else if action = "probe_pick_filter_dialog" {
             probePickFilterDialog(signature, sourceColor)
-        } else if action = "probe_properties_panel" {
-            probePropertiesPanel(signature, sourceColor)
         } else if action = "duplicate_line_cleanup" {
             startDuplicateLineCleanup(signature)
         } else if action = "fill_symbol_name" {
@@ -1681,109 +1679,11 @@ probePickFilterDialog(expectedSignature, sourceColor := "") {
     }
 }
 
-; Read-only diagnostic for a separate CAXA properties palette/dialog, if exposed.
-; If the palette is docked inside the main drawing window, this probe deliberately
-; reports that it was not found rather than reading the drawing canvas.
-probePropertiesPanel(expectedSignature, sourceColor := "") {
-    global jobFile, cadExe, dataDir, isPaused
-    if isPaused || cadExe = "" || !FileExist(jobFile)
-        return false
-    workFile := IniRead(jobFile, "active", "working_file", "")
-    if workFile = "" || !verifyBeforeAction(expectedSignature)
-        return false
-    mainHwnd := findUniqueWorkWindow(workFile)
-    if !mainHwnd || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile)
-        return false
-    pid := WinGetPID("ahk_id " mainHwnd)
-    Sleep 350
-    paletteHwnd := 0
-    paletteTitle := ""
-    for hwnd in WinGetList("ahk_pid " pid) {
-        if hwnd = mainHwnd
-            continue
-        try {
-            title := WinGetTitle("ahk_id " hwnd)
-            if InStr(title, "特性") || InStr(title, "属性") || InStr(StrLower(title), "properties") {
-                paletteHwnd := hwnd
-                paletteTitle := title
-                break
-            }
-        } catch {
-        }
-    }
-    if !paletteHwnd {
-        autoTip("未发现独立的 CAXA 属性窗口；属性自动设置尚未校准，未读取主绘图区控件")
-        return false
-    }
-    if !verifyBeforeAction(expectedSignature)
-      || !WinExist("ahk_id " paletteHwnd)
-      || WinGetPID("ahk_id " paletteHwnd) != pid {
-        autoTip("属性窗口身份核验未通过；未读取控件")
-        return false
-    }
-    report := "CAXA 属性面板只读诊断" . Chr(13) . Chr(10)
-    report .= "工作副本：" . workFile . Chr(13) . Chr(10)
-    report .= "面板选择颜色：" . sourceColor . Chr(13) . Chr(10)
-    report .= "窗口标题：" . paletteTitle . Chr(13) . Chr(10)
-    report .= "仅包含独立属性窗口控件；没有读取图纸内容或修改属性。" . Chr(13) . Chr(10) . Chr(13) . Chr(10)
-    try controls := WinGetControls("ahk_id " paletteHwnd)
-    catch {
-        autoTip("属性窗口控件枚举失败；未保存报告")
-        return false
-    }
-    for index, ctrl in controls {
-        try {
-            controlHwnd := ControlGetHwnd(ctrl, "ahk_id " paletteHwnd)
-            controlText := ""
-            controlClass := "unavailable"
-            controlId := "unavailable"
-            checked := "n/a"
-            itemsText := ""
-            try controlText := ControlGetText(ctrl, "ahk_id " paletteHwnd)
-            try controlClass := WinGetClass("ahk_id " controlHwnd)
-            try controlId := String(DllCall("GetDlgCtrlID", "Ptr", controlHwnd, "Int"))
-            try checked := String(ControlGetChecked(ctrl, "ahk_id " paletteHwnd))
-            try {
-                items := ControlGetItems(ctrl, "ahk_id " paletteHwnd)
-                for _, item in items
-                    itemsText .= (itemsText = "" ? "" : " | ") . item
-            }
-            cx := 0, cy := 0, cw := 0, ch := 0
-            try ControlGetPos(&cx, &cy, &cw, &ch, ctrl, "ahk_id " paletteHwnd)
-            report .= "#" . index . " | " . ctrl . " | HWND=" . controlHwnd
-                . " | ID=" . controlId . " | Class=" . controlClass
-                . " | Checked=" . checked . " | Rect=" . cx . "," . cy . "," . cw . "," . ch
-                . " | Text=" . StrReplace(StrReplace(controlText, Chr(13), " "), Chr(10), " ")
-                . " | Items=" . itemsText
-                . Chr(13) . Chr(10)
-        } catch as e {
-            report .= "#" . index . " | " . ctrl . " | read error: " . e.Message . Chr(13) . Chr(10)
-        }
-    }
-    if !verifyBeforeAction(expectedSignature)
-      || !WinExist("ahk_id " paletteHwnd)
-      || WinGetPID("ahk_id " paletteHwnd) != pid {
-        autoTip("属性诊断期间窗口发生变化；报告未保存")
-        return false
-    }
-    reportPath := dataDir "\properties_panel_probe.txt"
-    try {
-        if FileExist(reportPath)
-            FileDelete reportPath
-        FileAppend(report, reportPath, "UTF-8")
-        autoTip("属性面板诊断已保存到助手数据目录；未修改任何属性")
-        return true
-    } catch as e {
-        autoTip("诊断报告保存失败：" . e.Message)
-        return false
-    }
-}
-
 ; or edits properties. Commands are allow-listed and bound to the published
 ; work-copy window and the live workbench lease.
 runPublishedNativeCommand(expectedSignature, command, label) {
     global jobFile, isPaused, cadExe
-    allowed := Map("objectset", true, "properties", true)
+    allowed := Map("objectset", true)
     if !allowed.Has(command) {
         autoTip("未允许的 CAXA 命令；已拒绝")
         return false
