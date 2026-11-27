@@ -70,7 +70,7 @@ def request_panel_action(storage: Path, action: str, signature: str, *,
         "token": secrets.token_hex(16),
         "action": action,
         "job_signature": signature,
-        "created_at": str(time.time()),
+        "created_at": str(int(time.time())),
     }
     if source_color is not None:
         conf["request"]["source_color"] = source_color
