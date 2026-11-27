@@ -46,7 +46,7 @@ def request_panel_action(storage: Path, action: str, signature: str, *,
     if action == "apply_color_layer":
         if (not isinstance(target_layer, str) or not target_layer.strip()
                 or len(target_layer.strip()) > 64
-                or re.search(r"[\\r\\n\\t=;#\\[\\]|]", target_layer)):
+                or any(ch in target_layer for ch in "\\r\\n\\t=;#[]|")):
             raise ValueError("目标图层名称无效，拒绝发送")
     elif target_layer is not None:
         raise ValueError("当前操作不接受目标图层参数")
