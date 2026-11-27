@@ -945,9 +945,10 @@ class Panel:
             target_layer=str(rule.get('target_layer') or '').strip()
             if not target_layer:
                 raise workflow_v08.WorkflowError(f'Excel 中“{rule["source_color"]}”没有配置目标图层。')
-            if self._queue_ahk_action('apply_color_layer',target_layer=target_layer,
-                    target_color=rule['target_color'],target_linetype=rule['target_linetype'],
-                    linetype_scale=rule['linetype_scale'],target_lineweight=rule['target_lineweight']):
+            if self._queue_ahk_action('apply_color_layer',source_color=rule['source_color'],
+                    target_layer=target_layer,target_color=rule['target_color'],
+                    target_linetype=rule['target_linetype'],linetype_scale=rule['linetype_scale'],
+                    target_lineweight=rule['target_lineweight']):
                 self.status.set(f"已执行归层请求：{rule['source_color']} → {target_layer}；请查看左侧特性栏核对，助手不会自动保存。")
         except Exception as e:
             self.status.set(str(e))
