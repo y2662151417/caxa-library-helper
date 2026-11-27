@@ -490,7 +490,7 @@ class Panel:
                     self.update_color_rule_choices();self._save_profile_preference()
                     self.status.set('已切换图纸，模板恢复通用默认。请核实设备类别。')
             if row:
-                self.context.set(row['code']+'｜'+row['name'])
+                self.context.set(row['code']+'｜'+row['name'][:10])
                 try:
                     info=core.block_name_for_path(self.app.c,self.app.path)
                     self.block_name_status.set('名称：已匹配' if info.get('status')=='已匹配'
@@ -937,7 +937,7 @@ class Panel:
         confirm=(
             f"颜色规则：{rule['source_color']} → {rule['target_layer']}\n"
             "对象颜色：ByLayer｜对象线型：ByLayer｜线型比例：1｜线宽：ByLayer\n\n"
-            "请确认当前 CAXA 选集仅包含本组机械视图对象，不含图框、标题栏、尺寸及其他颜色组。"
+            "请确认当前 CAXA 选集仅包含本组机械视图对象，不含图框、标题栏、尺寸及其他颜色组。\n\n注意：当前版本仅打开原生特性面板并采集控件诊断，尚不会自动改写属性。是否继续？"
         )
         if not messagebox.askyesno('核对当前选集',confirm,parent=self.win,default='no'):
             return
