@@ -130,7 +130,7 @@ class ExcelBlockNameImportTests(unittest.TestCase):
             ["图号", "正式块名称", "备注"],
             ["CRB01D2084", "CRB01D2084_垂直重锤拉紧装置_B500_08轴_D500", "额外内容"],
         ])
-        with self.assertRaisesRegex(ValueError, "第三列"):
+        with self.assertRaisesRegex(ValueError, "未定义的图纸映射列"):
             core.import_block_names_xlsx(self.db, workbook)
 
 
