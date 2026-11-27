@@ -24,7 +24,11 @@ PANEL_ACTIONS = {
 
 def request_panel_action(storage: Path, action: str, signature: str, *,
                          source_color: str | None = None,
-                         target_layer: str | None = None) -> Path:
+                         target_layer: str | None = None,
+                         target_color: str | None = None,
+                         target_linetype: str | None = None,
+                         linetype_scale: float | None = None,
+                         target_lineweight: str | None = None) -> Path:
     """Queue one allow-listed UI action for the local AHK controller.
 
     The request is atomically replaced and bound to the exact published job.
@@ -48,8 +52,20 @@ def request_panel_action(storage: Path, action: str, signature: str, *,
                 or len(target_layer.strip()) > 64
                 or any(ord(ch) < 32 or ch in "=;#[]|" for ch in target_layer)):
             raise ValueError("目标图层名称无效，拒绝发送")
-    elif target_layer is not None:
-        raise ValueError("当前操作不接受目标图层参数")
+        for label, value in (("对象颜色", target_color),
+                             ("对象线型", target_linetype),
+                             ("对象线宽", target_lineweight)):
+            if (not isinstance(value, str) or not value.strip()
+                    or len(value.strip()) > 32
+                    or any(ord(ch) < 32 or ch in "=;#[]|" for ch in value)):
+                raise ValueError(f"{label}配置无效，拒绝发送")
+        if (isinstance(linetype_scale, bool)
+                or not isinstance(linetype_scale, (int, float))
+                or linetype_scale <= 0 or linetype_scale > 1000):
+            raise ValueError("线型比例必须是 0 到 1000 之间的正数")
+    elif any(value is not None for value in
+             (target_layer, target_color, target_linetype, linetype_scale, target_lineweight)):
+        raise ValueError("当前操作不接受特性参数")
     conf["request"] = {
         "token": secrets.token_hex(16),
         "action": action,
@@ -60,6 +76,14 @@ def request_panel_action(storage: Path, action: str, signature: str, *,
         conf["request"]["source_color"] = source_color
     if target_layer is not None:
         conf["request"]["target_layer"] = target_layer.strip()
+    if target_color is not None:
+        conf["request"]["target_color"] = target_color.strip()
+    if target_linetype is not None:
+        conf["request"]["target_linetype"] = target_linetype.strip()
+    if linetype_scale is not None:
+        conf["request"]["linetype_scale"] = str(float(linetype_scale))
+    if target_lineweight is not None:
+        conf["request"]["target_lineweight"] = target_lineweight.strip()
     target = storage / "panel_action.ini"
     fd, tmpname = tempfile.mkstemp(prefix=".panel_action_", suffix=".tmp", dir=str(storage))
     try:
