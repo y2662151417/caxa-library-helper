@@ -1524,6 +1524,7 @@ applyColorLayer(expectedSignature, targetLayer) {
             Map("slot","layerCombo","value",targetLayer,"label","图层")
         ]
         ; Preflight every control and target item before changing the selection.
+        seenControlHandles := Map()
         for field in fieldPlan {
             slot := field["slot"]
             ctrl := IniRead(cfgFile, slot, "control", "")
@@ -1539,6 +1540,11 @@ applyColorLayer(expectedSignature, targetLayer) {
                 autoTip("【" field["label"] "】属性下拉框与校准状态不符或不可见；未修改选集")
                 return false
             }
+            if seenControlHandles.Has(ctrlHwnd) {
+                autoTip("多个属性项指向同一个 CAXA 下拉框；校准可能重复，未修改选集")
+                return false
+            }
+            seenControlHandles[ctrlHwnd] := field["label"]
             if !comboHasExactItem(ctrl, hwnd, field["value"]) {
                 autoTip("【" field["label"] "】下拉框中找不到【" field["value"] "】；未修改选集")
                 return false
@@ -1564,6 +1570,11 @@ applyColorLayer(expectedSignature, targetLayer) {
             }
             if WinGetID("A") != hwnd || !jobWindowMatches(hwnd, workFile) {
                 autoTip("属性修改期间 CAXA 窗口发生变化；请检查左侧特性栏")
+                return false
+            }
+            currentCount := readSelectedEntityCount(hwnd)
+            if currentCount != selectionCount {
+                autoTip("修改期间选集数量发生变化；请检查左侧特性栏，可能已部分修改")
                 return false
             }
         }
