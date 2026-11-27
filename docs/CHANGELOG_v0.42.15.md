@@ -22,7 +22,7 @@
 - unittest：113 项全部通过。
 - 增量 manifest SHA-256/size：通过。
 - Windows AutoHotkey v2 主助手脚本与只读探针语法检查：通过。
-- CI：https://github.com/y2662151417/caxa-library-helper/actions/runs/45936746830
+- CI：https://github.com/y2662151417/caxa-library-helper/actions/runs/45936874339
 
 ## 未改变的功能边界
 
