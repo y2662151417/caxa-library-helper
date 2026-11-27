@@ -538,6 +538,15 @@ class Panel:
                           target_color=None,target_linetype=None,linetype_scale=None,target_lineweight=None):
         job=self._published_job()
         if not job:return False
+        if sys.platform=='win32':
+            pid=ahk_runtime.read_controller_pid(core.storage_dir())
+            build=ahk_runtime.read_controller_build(core.storage_dir())
+            if not self._pid_alive(pid):
+                self.status.set('CAXA 控制器未运行；请等待控制器连接后再操作。')
+                return False
+            if build!=ahk_runtime.CONTROLLER_BUILD_ID:
+                self.status.set('检测到旧版 CAXA 控制器。请在系统托盘中右键旧版 H 图标选择 Exit，然后重新启动制作助手。')
+                return False
         if confirm_text and not messagebox.askyesno('确认 CAXA 操作',confirm_text.format(
                 code=job.get('code',''),work=job.get('working_file','')),parent=self.win,default='no'):
             return False
@@ -575,7 +584,11 @@ class Panel:
             return
         pid=ahk_runtime.read_controller_pid(core.storage_dir())
         if self._pid_alive(pid):
-            self.status.set('CAXA 控制器已连接；可以直接使用上方操作。')
+            build=ahk_runtime.read_controller_build(core.storage_dir())
+            if build==ahk_runtime.CONTROLLER_BUILD_ID:
+                self.status.set('CAXA 控制器已连接；可以直接使用上方操作。')
+            else:
+                self.status.set('检测到旧版 CAXA 控制器。请在系统托盘中右键旧版 H 图标选择 Exit，然后重新启动制作助手。')
             return
         try:
             self.status.set('正在准备并验证 CAXA 控制器…')
@@ -595,7 +608,11 @@ class Panel:
     def check_ahk_controller_start(self):
         pid=ahk_runtime.read_controller_pid(core.storage_dir())
         if self._pid_alive(pid):
-            self.status.set(f'CAXA 控制器已连接（PID {pid}）；可以开始操作。')
+            build=ahk_runtime.read_controller_build(core.storage_dir())
+            if build==ahk_runtime.CONTROLLER_BUILD_ID:
+                self.status.set(f'CAXA 控制器已连接（PID {pid}）；可以开始操作。')
+            else:
+                self.status.set('控制器版本不匹配；请退出系统托盘中的旧版 H 图标，再重新启动制作助手。')
             return
         root=core.storage_dir()
         marker_error=root/'ahk_controller_marker_error.log'
