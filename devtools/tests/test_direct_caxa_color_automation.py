@@ -22,7 +22,7 @@ class DirectCaxaColorAutomationSourceTests(unittest.TestCase):
 
     def test_property_action_uses_excel_target_and_requires_a_nonempty_selection(self):
         self.assertIn('action = "apply_color_layer"', self.ahk)
-        self.assertIn("applyColorLayer(signature, targetLayer)", self.ahk)
+        self.assertIn("applyColorLayer(signature, targetLayer, targetColor, targetLinetype, linetypeScale, targetLineweight)", self.ahk)
         self.assertIn("selectionCount := readSelectedEntityCount(hwnd)", self.ahk)
         self.assertIn('if selectionCount < 1', self.ahk)
         self.assertIn('ControlChooseString value, ctrl, "ahk_id " hwnd', self.ahk)
