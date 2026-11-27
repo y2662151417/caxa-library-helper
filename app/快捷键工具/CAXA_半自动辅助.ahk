@@ -62,7 +62,10 @@ SetTimer GalleryDialogPoll, 500
 try {
     if FileExist(controllerMarker)
         FileDelete controllerMarker
+    if FileExist(controllerBuildMarker)
+        FileDelete controllerBuildMarker
     FileAppend DllCall("GetCurrentProcessId", "UInt"), controllerMarker, "UTF-8-RAW"
+    FileAppend controllerBuildId, controllerBuildMarker, "UTF-8-RAW"
 } catch as e {
     try FileAppend "[AHK_STARTUP_ERROR] 无法写入控制器 PID 标记：" e.Message "`n", dataDir "\ahk_controller_marker_error.log", "UTF-8-RAW"
 }
@@ -357,11 +360,14 @@ jobWindowMatches(hwnd, workFile) {
 }
 
 cleanupControllerMarker(exitReason, exitCode) {
-    global controllerMarker
+    global controllerMarker, controllerBuildMarker
     currentPid := DllCall("GetCurrentProcessId", "UInt")
     try {
-        if FileExist(controllerMarker) && Trim(FileRead(controllerMarker, "UTF-8")) = (currentPid "")
+        if FileExist(controllerMarker) && Trim(FileRead(controllerMarker, "UTF-8")) = (currentPid "") {
             FileDelete controllerMarker
+            if FileExist(controllerBuildMarker)
+                FileDelete controllerBuildMarker
+        }
     } catch {
     }
 }
@@ -473,7 +479,7 @@ PanelActionPoll() {
         targetLineweight := IniRead(panelActionFile, "request", "target_lineweight", "")
         createdAt := IniRead(panelActionFile, "request", "created_at", "")
         nowEpoch := 0
-        if IsNumber(createdAt) {
+        if RegExMatch(createdAt, "^\d{10}$") {
             nowEpoch := DateDiff("19700101000000", A_NowUTC, "Seconds")
             age := nowEpoch - Floor(createdAt + 0)
         } else {
