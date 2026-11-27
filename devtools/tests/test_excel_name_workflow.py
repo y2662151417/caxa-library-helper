@@ -11,13 +11,19 @@ class ExcelNameWorkflowIntegrationTests(unittest.TestCase):
         end = source.index("    def require(self):", start)
         body = source[start:end]
         self.assertIn("*.xlsx", body)
-        self.assertIn("core.import_block_names_xlsx", body)
+        self.assertIn("core.import_caxa_workbook_xlsx", body)
         self.assertNotIn("*.txt", body)
         self.assertNotIn("*.csv", body)
 
     def test_compact_panel_has_direct_official_name_copy_button(self):
         source = (ROOT / "app" / "floating_panel.py").read_text(encoding="utf-8")
         self.assertIn("text='复制正式块名称'", source)
+        self.assertIn("text='一键设置特性'", source)
+        self.assertIn("text='拾取筛选'", source)
+        self.assertIn("text='删除重线'", source)
+        self.assertIn("text='定义属性块'", source)
+        self.assertIn("ttk.Combobox(color_row", source)
+        self.assertIn("310x230", source)
         self.assertIn("self.app.copy_official_block_name(parent=self.win)", source)
 
     def test_property_and_insert_entry_is_not_exposed_in_actions_page(self):
