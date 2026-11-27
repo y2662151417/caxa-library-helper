@@ -19,6 +19,15 @@
 - findPickFilterDialog 的昂贵安全预检从每次 100ms 轮询中移出，只在等待循环前执行一次；循环内仍持续核对当前窗口、进程和任务签名，避免重复启动 Python 哈希校验进程导致 CAD 控制器阻塞。
 - 新增颜色全状态验证、旧选集隔离、源颜色绑定、属性栏读回和请求过期逻辑测试。
 
+## 自动化验证
+
+- Python 3.11 compileall：通过。
+- unittest：108 项全部通过。
+- 增量 manifest SHA-256/size：通过。
+- Windows AutoHotkey v2 语法检查：主助手脚本与独立只读控件探针均通过。
+- CI run：https://github.com/y2662151417/caxa-library-helper/actions/runs/45933368846
+- CI 不连接用户的 CAXA 2024，不代表实机功能已验收。
+
 ## 当前明确未完成
 
 - 未在用户 Windows + CAXA 2024 环境实机验证颜色列表的 Win32 控件类别、复选框读写及自动筛选结果。
