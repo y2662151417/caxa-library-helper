@@ -53,6 +53,8 @@ class DirectCaxaColorAutomationSourceTests(unittest.TestCase):
         self.assertIn('if RegExMatch(createdAt, "^\\d{10}$")', self.ahk)
         self.assertIn("age > 300", self.ahk)
         poll = self.ahk.split("PanelActionPoll() {", 1)[1].split("\n}", 1)[0]
+        self.assertIn('nowEpoch := DateDiff(A_NowUTC, "19700101000000", "Seconds")', poll)
+        self.assertNotIn('DateDiff("19700101000000", A_NowUTC, "Seconds")', poll)
         self.assertIn("age > 300", poll)
         self.assertNotIn("age > 30 ||", poll)
         self.assertNotIn("age > 30 ||", poll)
