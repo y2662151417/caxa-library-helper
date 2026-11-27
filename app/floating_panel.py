@@ -8,7 +8,7 @@ import copy, json, os, tempfile, sys, ctypes, configparser, time
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
-import core, profiles, workflow_v08, router_v11, autoread, bridge, ahk_runtime
+import core, profiles, workflow_v08, router_v11, autoread, bridge, ahk_runtime, clipboard_utils
 
 class Panel:
     def __init__(self, app):
@@ -43,6 +43,7 @@ class Panel:
         self.last_path=None
         self.context=tk.StringVar(value='当前未选择图纸')
         self.block_name_status=tk.StringVar(value='正式块名称：尚未匹配')
+        self.copy_name_button=None
         self.status=tk.StringVar(value='正在检查 CAD 控制器…')
         self.recommended=tk.StringVar(value='先选择图纸')
         self.action_reason=tk.StringVar(value='点击“选择图纸”，选中一行后点击“打开图纸”。系统会自动创建工作副本。')
@@ -90,6 +91,7 @@ class Panel:
         self._dialogs.clear()
         self.color_combo=None
         self.view_tree=None
+        self.copy_name_button=None
 
     def _show_home_page(self):
         self._clear_page_host()
@@ -101,7 +103,9 @@ class Panel:
         ttk.Label(body,textvariable=self.context,wraplength=330,
                   font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(5,2))
         ttk.Label(body,textvariable=self.block_name_status,wraplength=330,
-                  foreground='#24527a').pack(anchor='w',pady=(0,5))
+                  foreground='#24527a').pack(anchor='w',pady=(0,3))
+        self.copy_name_button=ttk.Button(body,text='复制正式块名称',command=self.copy_block_name)
+        self.copy_name_button.pack(fill='x',pady=(0,5))
         ttk.Label(body,textvariable=self.app.view_template_summary_var,wraplength=330,
                   foreground='#666').pack(anchor='w',pady=(0,7))
         self.main_button=ttk.Button(body,textvariable=self.recommended,command=self.do_recommended)
@@ -122,7 +126,7 @@ class Panel:
                   wraplength=320,foreground='#666').pack(anchor='w',pady=(0,8))
         ttk.Button(w,text='清理图纸',command=self.open_cleanup_window).pack(fill='x',pady=3,ipady=4)
         ttk.Button(w,text='开始定义图符',command=self.define_symbol).pack(fill='x',pady=3,ipady=4)
-        ttk.Button(w,text='属性与入库',command=self.open_insert_window).pack(fill='x',pady=3,ipady=4)
+        # 属性核对和最终入库由操作者在 CAXA 中完成；助手不提供提交入口。
         ttk.Separator(w).pack(fill='x',pady=7)
         ttk.Button(w,text='连接当前 CAXA',command=self.connect_cad).pack(fill='x',pady=3)
         ttk.Separator(w).pack(fill='x',pady=6)
@@ -459,11 +463,15 @@ class Panel:
                         self.block_name_status.set('正式块名称：已匹配｜'+info.get('block_name',''))
                     else:
                         self.block_name_status.set('正式块名称：'+info.get('status','待匹配'))
+                    if self.copy_name_button is not None:
+                        self.copy_name_button.configure(state='normal' if info.get('status')=='已匹配' else 'disabled')
                 except Exception:
                     self.block_name_status.set('正式块名称：暂不可读取')
             else:
                 self.context.set('尚未选择图纸')
-                self.block_name_status.set('正式块名称：请先在图纸管理中导入清单并选择图纸')
+                self.block_name_status.set('正式块名称：请先导入 Excel 并选择图纸')
+                if self.copy_name_button is not None:
+                    self.copy_name_button.configure(state='disabled')
             self.update_recommendation()
             self._refresh_guide_status()
             if self.view_tree is not None:self._refresh_view_table()
@@ -733,17 +741,8 @@ class Panel:
         except tk.TclError:pass
 
     def copy_block_name(self):
-        if not self.require():return
-        info=core.block_name_for_path(self.app.c,self.app.path)
-        if info.get('status')!='已匹配' or not info.get('block_name'):
-            messagebox.showwarning('正式块名称未匹配',
-                '当前图纸没有按完整图号唯一匹配到正式块名称，不能复制候选名称。',parent=self.win)
-            return
-        try:
-            self.win.clipboard_clear();self.win.clipboard_append(info['block_name']);self.win.update()
-            self.status.set('正式块名称已复制：'+info['block_name'])
-        except Exception as e:messagebox.showerror('复制失败',str(e),parent=self.win)
-
+        if self.app.copy_official_block_name(parent=self.win):
+            self.status.set('正式块名称已复制；请在 CAXA 中人工核对并粘贴')
 
     def toggle_advanced(self):
         if self._page_key=='settings':
@@ -1011,7 +1010,7 @@ class Panel:
                 if cached and all(cached.get(k) for k in p['required_params']):
                     params={k:cached[k] for k in p['required_params']}
                 else:
-                    raw=self.win.clipboard_get()
+                    raw=clipboard_utils.read_clipboard_text(self.win)
                     params=profiles.parse_property_grid(raw,p)
             except Exception as e:
                 messagebox.showwarning('读取失败','本图没有可用缓存，请先复制参数栏的多行文字。\n'+str(e),parent=self.win);return
