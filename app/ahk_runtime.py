@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import os
 import platform
+import re
 import shutil
 import subprocess
 import tempfile
@@ -83,7 +84,7 @@ def read_controller_build(storage_dir: Optional[Path] = None) -> str:
         value = marker.read_text(encoding="utf-8-sig").strip()
     except OSError:
         return ""
-    return value if value.isascii() and len(value) <= 80 else ""
+    return value if re.fullmatch(r"[A-Za-z0-9._-]{1,80}", value) else ""
 
 
 def _startup_diagnostics(root: Path) -> str:
