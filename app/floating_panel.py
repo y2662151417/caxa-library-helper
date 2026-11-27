@@ -770,6 +770,11 @@ class Panel:
             ('校准线型下拉框','calibrate_linetype_combo'),
             ('校准线宽下拉框','calibrate_lineweight_combo')):
             ttk.Button(w,text=label,command=lambda a=action:self._begin_calibration(a,w,9000)).pack(fill='x',pady=2,ipady=2)
+        ttk.Button(w,text='诊断左侧特性栏（只读）',
+                   command=lambda:self._queue_ahk_action('probe_properties_palette')).pack(
+                       fill='x',pady=(5,2),ipady=2)
+        ttk.Label(w,text='先在测试图中框选少量对象，再运行诊断；仅读取属性字段和控件信息，不修改图纸。',
+                  wraplength=335,foreground='#666').pack(anchor='w',pady=(0,5))
         ttk.Separator(w).pack(fill='x',pady=7)
         ttk.Label(w,text='其他低频控件',font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(2,3))
         for label,action in (
