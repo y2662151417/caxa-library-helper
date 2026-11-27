@@ -21,6 +21,7 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Optional
 
 AHK_VERSION = "2.0.32"
+CONTROLLER_BUILD_ID = "caxa-helper-v0.42.16"
 ARCHIVE_URL = "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.32/AutoHotkey_2.0.32.zip"
 ARCHIVE_SHA256 = "384a4c125e8d7b5b77ddbd5a593ec761d3e9e96e97a95931cf56e9a077fda114"
 MAX_ARCHIVE_BYTES = 20 * 1024 * 1024
@@ -72,6 +73,17 @@ def read_controller_pid(storage_dir: Optional[Path] = None) -> int:
     except ValueError:
         return 0
     return pid if pid > 0 else 0
+
+
+def read_controller_build(storage_dir: Optional[Path] = None) -> str:
+    """Read the build identity written by the running AHK controller."""
+    root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
+    marker = root / "ahk_controller_build.txt"
+    try:
+        value = marker.read_text(encoding="utf-8-sig").strip()
+    except OSError:
+        return ""
+    return value if value.isascii() and len(value) <= 80 else ""
 
 
 def _startup_diagnostics(root: Path) -> str:
@@ -232,10 +244,12 @@ def launch_script(script: Path, storage_dir: Optional[Path] = None, popen=None):
     exe = install_runtime(root)
     root.mkdir(parents=True, exist_ok=True)
     marker = root / "ahk_controller.pid"
+    build_marker = root / "ahk_controller_build.txt"
     marker_error = root / "ahk_controller_marker_error.log"
     log_path = root / "ahk_controller_startup.log"
     try:
         marker.unlink(missing_ok=True)
+        build_marker.unlink(missing_ok=True)
         marker_error.unlink(missing_ok=True)
     except OSError as exc:
         raise RuntimeError(f"无法清理旧的控制器标记文件：{exc}") from exc
@@ -273,12 +287,14 @@ def start_script_async(script: Path, callback: Optional[Callable[[bool, str], No
                         f"AutoHotkey 进程启动后立即退出，退出代码 {return_code}。\n"
                         + _startup_diagnostics(root)
                     )
-                if read_controller_pid(root) == proc.pid:
+                if (read_controller_pid(root) == proc.pid
+                        and read_controller_build(root) == CONTROLLER_BUILD_ID):
                     registered = True
                     break
                 time.sleep(0.1)
             if not registered:
                 observed = read_controller_pid(root)
+                observed_build = read_controller_build(root)
                 try:
                     if proc.poll() is None:
                         proc.terminate()
@@ -288,10 +304,11 @@ def start_script_async(script: Path, callback: Optional[Callable[[bool, str], No
                 raise RuntimeError(
                     "AutoHotkey 进程仍在运行，但 8 秒内没有写入与本次进程 PID 匹配的控制器标记。\n"
                     f"本次进程 PID：{proc.pid}；标记文件 PID：{observed or '缺失/无效'}；"
+                    f"控制器版本标记：{observed_build or '缺失/无效'}；期望版本：{CONTROLLER_BUILD_ID}；"
                     f"标记路径：{marker}\n"
                     + _startup_diagnostics(root)
                 )
-            message = f"AutoHotkey v{AHK_VERSION} 控制器已注册，PID {proc.pid}。"
+            message = f"AutoHotkey v{AHK_VERSION} 控制器 {CONTROLLER_BUILD_ID} 已注册，PID {proc.pid}。"
             ok = True
         except Exception as exc:
             root = Path(storage_dir) if storage_dir is not None else _default_storage_dir()
