@@ -25,6 +25,10 @@ global jobFile := dataDir "\active_job.ini"
 global guardRunner := dataDir "\ahk_guard_runner.ini"
 global panelActionFile := dataDir "\panel_action.ini"
 global panelActionSeen := ""
+global lastPickFilterSignature := ""
+global lastPickFilterSource := ""
+global lastPickFilterBaselineCount := -1
+global lastPickFilterTick := 0
 global galleryFillPendingSignature := ""
 global galleryFillPendingSince := 0
 global galleryDialogNoticeShown := false
@@ -67,6 +71,21 @@ OnExit cleanupControllerMarker
 autoTip(msg) {
     ToolTip msg
     SetTimer () => ToolTip(), -2600
+}
+
+logPanelActionExpiry(action, token, createdAt, nowEpoch, age) {
+    global dataDir
+    try {
+        line := FormatTime(A_Now, "yyyy-MM-dd HH:mm:ss")
+            . " | action=" action
+            . " | token=" SubStr(token, 1, 8)
+            . " | created_at=" createdAt
+            . " | now_epoch=" nowEpoch
+            . " | age_seconds=" age
+            . " | result=expired"
+        FileAppend line "\r\n", dataDir "\panel_action_expiry.log", "UTF-8"
+    } catch {
+    }
 }
 
 cadOk(quiet := false) {
@@ -453,6 +472,7 @@ PanelActionPoll() {
         linetypeScale := IniRead(panelActionFile, "request", "linetype_scale", "")
         targetLineweight := IniRead(panelActionFile, "request", "target_lineweight", "")
         createdAt := IniRead(panelActionFile, "request", "created_at", "")
+        nowEpoch := 0
         if IsNumber(createdAt) {
             nowEpoch := DateDiff("19700101000000", A_NowUTC, "Seconds")
             age := nowEpoch - Floor(createdAt + 0)
@@ -461,10 +481,11 @@ PanelActionPoll() {
         }
         panelActionSeen := token
         FileDelete panelActionFile
-        ; The Python bridge writes a Unix-epoch timestamp. A five-minute
-        ; window tolerates a busy CAD controller while the job signature
-        ; remains the authoritative stale-task guard.
+        ; UTC epoch avoids local-time/file-time timezone ambiguity. The
+        ; five-minute queue TTL tolerates a busy controller; the signed job
+        ; and 35-second live workbench lease remain mandatory before CAD work.
         if age < -10 || age > 300 {
+            logPanelActionExpiry(action, token, createdAt, nowEpoch, age)
             autoTip("面板请求已过期；请重新点击操作按钮")
             return
         }
@@ -488,7 +509,9 @@ PanelActionPoll() {
         } else if action = "restore_pick_filter" {
             setPickFilterColor(signature, "全部颜色")
         } else if action = "apply_color_layer" {
-            applyColorLayer(signature, targetLayer, targetColor, targetLinetype, linetypeScale, targetLineweight)
+            applyColorLayer(signature, sourceColor, targetLayer, targetColor, targetLinetype, linetypeScale, targetLineweight)
+        } else if action = "probe_properties_palette" {
+            probePropertiesPalette(signature)
         } else if action = "calibrate_layer_combo" {
             beginPropertyComboCalibration(signature, "layerCombo", "图层")
         } else if action = "calibrate_color_combo" {
@@ -1109,11 +1132,21 @@ FinishTimedCalibration(targetHwnd, mainHwnd, signature, slot, label, title, clas
 
 ; Locate the native pick-filter dialog for the exact active work copy.
 findPickFilterDialog(expectedSignature, workFile, mainHwnd) {
+    ; Hash/SQLite preflight is intentionally performed once before polling.
+    ; Re-running it on every 100 ms window check can launch dozens of Python
+    ; processes and stall the CAD controller while the user queues another action.
+    if !verifyBeforeAction(expectedSignature)
+      || !WinExist("ahk_id " mainHwnd)
+      || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile)
+        return 0
     pid := WinGetPID("ahk_id " mainHwnd)
     Loop 30 {
-        if !verifyBeforeAction(expectedSignature)
-          || !WinExist("ahk_id " mainHwnd)
+        if !WinExist("ahk_id " mainHwnd)
+          || WinGetPID("ahk_id " mainHwnd) != pid
           || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile)
+            return 0
+        if !FileExist(jobFile)
+          || IniRead(jobFile, "active", "job_signature", "") != expectedSignature
             return 0
         for hwnd in WinGetList("ahk_pid " pid) {
             try {
