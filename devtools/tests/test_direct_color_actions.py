@@ -44,16 +44,29 @@ class DirectColorActionBridgeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError, "目标图层"):
                 bridge.request_panel_action(Path(directory), "apply_color_layer", "a" * 64)
-        for bad in ("", "中心线层\n[bad]", "中心线层|bad", "x" * 65):
+        rule = dict(target_color="ByLayer", target_linetype="ByLayer",
+                    linetype_scale=1.0, target_lineweight="ByLayer")
+        for bad in ("", "中心线层\\n[bad]", "中心线层|bad", "x" * 65):
             with self.subTest(target=bad), tempfile.TemporaryDirectory() as directory:
                 with self.assertRaisesRegex(ValueError, "目标图层"):
                     bridge.request_panel_action(Path(directory), "apply_color_layer", "a" * 64,
-                                                target_layer=bad)
+                                                target_layer=bad, **rule)
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "线型比例"):
+                bridge.request_panel_action(Path(directory), "apply_color_layer", "a" * 64,
+                    target_layer="中心线层", target_color="ByLayer", target_linetype="ByLayer",
+                    linetype_scale=0, target_lineweight="ByLayer")
 
-    def test_apply_color_layer_writes_the_excel_target_layer(self):
-        request = self.read_request("apply_color_layer", target_layer="中心线层")
+    def test_apply_color_layer_writes_every_excel_property(self):
+        request = self.read_request("apply_color_layer", target_layer="中心线层",
+                                    target_color="ByLayer", target_linetype="ByLayer",
+                                    linetype_scale=1.0, target_lineweight="ByLayer")
         self.assertEqual(request["action"], "apply_color_layer")
         self.assertEqual(request["target_layer"], "中心线层")
+        self.assertEqual(request["target_color"], "ByLayer")
+        self.assertEqual(request["target_linetype"], "ByLayer")
+        self.assertEqual(request["linetype_scale"], "1.0")
+        self.assertEqual(request["target_lineweight"], "ByLayer")
 
     def test_property_combo_calibration_actions_are_allowlisted(self):
         for action in ("calibrate_layer_combo", "calibrate_color_combo",
