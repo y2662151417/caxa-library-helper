@@ -237,7 +237,7 @@ class Panel:
                   wraplength=315,foreground='#555').pack(anchor='w',pady=4)
         ttk.Button(w,text='启动删除重复线',command=self.delete_duplicate_lines).pack(fill='x',pady=8,ipady=6)
         ttk.Separator(w).pack(fill='x',pady=5)
-        ttk.Label(w,text='颜色／图层自动处理暂不开放：红、绿、白的公司标准映射尚未完整核实。这里不要求你逐条新增规则，也不会猜测图层或线型。',
+        ttk.Label(w,text='颜色映射已从配置 Excel 读取。拾取过滤和属性批量写入正在校准 CAXA 2024 控件；校准前不会猜测控件位置或自动改图。',
                   wraplength=315,foreground='#8a5a20').pack(anchor='w',pady=5)
     def open_views_window(self):
         # This is a batch/type-level preference, not a per-drawing prompt.
