@@ -43,6 +43,11 @@ class DirectCaxaColorAutomationSourceTests(unittest.TestCase):
         self.assertIn("state != expectedState", self.ahk)
         self.assertIn('lastPickFilterBaselineCount := baselineCount', self.ahk)
 
+    def test_read_only_probe_has_a_noninteractive_syntax_check_mode(self):
+        probe = (ROOT / "app" / "快捷键工具" / "CAXA_控件探针_只读.ahk").read_text(encoding="utf-8-sig")
+        self.assertIn('A_Args[1] = "--syntax-check"', probe)
+        self.assertIn("ExitApp 0", probe)
+
     def test_panel_request_expiry_uses_epoch_and_five_minute_ttl(self):
         self.assertIn('createdAt := IniRead(panelActionFile, "request", "created_at", "")', self.ahk)
         self.assertIn("if IsNumber(createdAt)", self.ahk)
