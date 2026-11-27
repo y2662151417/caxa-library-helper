@@ -24,7 +24,7 @@ class DirectColorActionBridgeTests(unittest.TestCase):
                 request = self.read_request("set_pick_filter", source_color=color)
                 self.assertEqual(request["action"], "set_pick_filter")
                 self.assertEqual(request["source_color"], color)
-                self.assertRegex(request["created_at"], r"^\\d{10}$")
+                self.assertRegex(request["created_at"], r"^\d{10}$")
                 self.assertTrue(int(request["created_at"]) > 0)
 
     def test_filter_rejects_unknown_or_missing_color(self):
@@ -124,7 +124,7 @@ class ControllerBuildHandshakeTests(unittest.TestCase):
 
     def test_panel_action_epoch_is_parsed_as_ten_digit_integer(self):
         ahk = (ROOT / "app" / "快捷键工具" / "CAXA_半自动辅助.ahk").read_text(encoding="utf-8-sig")
-        self.assertIn('RegExMatch(createdAt, "^\\\\d{10}$")', ahk)
+        self.assertIn('RegExMatch(createdAt, "^\\d{10}$")', ahk)
         self.assertIn('DateDiff("19700101000000", A_NowUTC, "Seconds")', ahk)
         self.assertIn("age > 300", ahk)
 
