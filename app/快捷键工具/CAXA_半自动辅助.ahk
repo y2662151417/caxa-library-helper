@@ -35,7 +35,7 @@ global galleryDialogNoticeShown := false
 global calibrationBusy := false
 global controllerMarker := dataDir "\ahk_controller.pid"
 global controllerBuildMarker := dataDir "\ahk_controller_build.txt"
-global controllerBuildId := "caxa-helper-v0.42.17"
+global controllerBuildId := "caxa-helper-v0.42.18"
 global cadExe := IniRead(cfgFile, "cad", "process", "")
 global isPaused := false
 ; The view guide only tracks explicit operator actions. It NEVER sends Enter,
@@ -482,7 +482,8 @@ PanelActionPoll() {
         createdAt := IniRead(panelActionFile, "request", "created_at", "")
         nowEpoch := 0
         if RegExMatch(createdAt, "^\d{10}$") {
-            nowEpoch := DateDiff("19700101000000", A_NowUTC, "Seconds")
+            ; AutoHotkey DateDiff returns DateTime1 minus DateTime2; current UTC must be first.
+            nowEpoch := DateDiff(A_NowUTC, "19700101000000", "Seconds")
             age := nowEpoch - Floor(createdAt + 0)
         } else {
             age := 999999
