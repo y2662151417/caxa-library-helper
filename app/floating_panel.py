@@ -786,7 +786,7 @@ class Panel:
         elif action=='parse_name':self.parse_name()
         elif action=='prepare_views':self.prepare_views()
         elif action=='next':self.app.next_pending()
-        elif action=='review':self.open_insert_window()
+        elif action=='review':self.open_qc_page()
         elif action=='define_symbol':self.define_symbol()
         elif action=='cad_guide':self.open_actions_page()
         elif action=='configure_views':self.open_views_window()
