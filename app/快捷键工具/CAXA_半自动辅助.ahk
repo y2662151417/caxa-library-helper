@@ -442,11 +442,20 @@ PanelActionPoll() {
         action := IniRead(panelActionFile, "request", "action", "")
         signature := IniRead(panelActionFile, "request", "job_signature", "")
         sourceColor := IniRead(panelActionFile, "request", "source_color", "")
-        requestTime := FileGetTime(panelActionFile, "M")
-        age := DateDiff(requestTime, A_Now, "Seconds")
+        targetLayer := IniRead(panelActionFile, "request", "target_layer", "")
+        createdAt := IniRead(panelActionFile, "request", "created_at", "")
+        if RegExMatch(createdAt, "^\\d+(?:\\.\\d+)?$") {
+            nowEpoch := DateDiff("19700101000000", A_NowUTC, "Seconds")
+            age := nowEpoch - Floor(Number(createdAt))
+        } else {
+            age := 999999
+        }
         panelActionSeen := token
         FileDelete panelActionFile
-        if age < 0 || age > 30 {
+        ; The Python bridge writes a Unix-epoch timestamp. A five-minute
+        ; window tolerates a busy CAD controller while the job signature
+        ; remains the authoritative stale-task guard.
+        if age < -10 || age > 300 {
             autoTip("面板请求已过期；请重新点击操作按钮")
             return
         }
@@ -467,15 +476,20 @@ PanelActionPoll() {
             startDuplicateLineCleanup(signature)
         } else if action = "fill_symbol_name" {
             autoTip("正式名称由操作者手动复制和粘贴；助手不会自动填写")
-        } else if action = "open_pick_filter" {
-            if runPublishedNativeCommand(signature, "objectset", "打开拾取过滤设置")
-                probePickFilterDialog(signature, sourceColor)
-        } else if action = "open_properties" {
-            if runPublishedNativeCommand(signature, "properties", "打开属性面板")
-                probePropertiesPanel(signature, sourceColor)
+        } else if action = "set_pick_filter" {
+            setPickFilterColor(signature, sourceColor)
         } else if action = "restore_pick_filter" {
-            if runPublishedNativeCommand(signature, "objectset", "恢复拾取过滤设置")
-                probePickFilterDialog(signature, "全部颜色")
+            setPickFilterColor(signature, "全部颜色")
+        } else if action = "apply_color_layer" {
+            applyColorLayer(signature, targetLayer)
+        } else if action = "calibrate_layer_combo" {
+            beginPropertyComboCalibration(signature, "layerCombo", "图层")
+        } else if action = "calibrate_color_combo" {
+            beginPropertyComboCalibration(signature, "colorCombo", "颜色")
+        } else if action = "calibrate_linetype_combo" {
+            beginPropertyComboCalibration(signature, "linetypeCombo", "线型")
+        } else if action = "calibrate_lineweight_combo" {
+            beginPropertyComboCalibration(signature, "lineweightCombo", "线宽")
         } else if action = "start_view_guide" {
             startGuide(signature)
         } else if action = "next_view" {
@@ -1085,6 +1099,466 @@ FinishTimedCalibration(targetHwnd, mainHwnd, signature, slot, label, title, clas
 }
 
 ; Start only documented CAXA native dialogs. This helper never selects entities
+
+; Locate the native pick-filter dialog for the exact active work copy.
+findPickFilterDialog(expectedSignature, workFile, mainHwnd) {
+    pid := WinGetPID("ahk_id " mainHwnd)
+    for attempt in 1..30 {
+        if !verifyBeforeAction(expectedSignature)
+          || !WinExist("ahk_id " mainHwnd)
+          || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile)
+            return 0
+        for hwnd in WinGetList("ahk_pid " pid) {
+            try {
+                title := WinGetTitle("ahk_id " hwnd)
+                if InStr(title, "拾取过滤设置")
+                    return hwnd
+            } catch {
+            }
+        }
+        Sleep 100
+    }
+    return 0
+}
+
+normalizeFilterLabel(value) {
+    value := StrReplace(value, "&", "")
+    value := StrReplace(value, "（", "(")
+    value := RegExReplace(value, "\s+", "")
+    return value
+}
+
+filterColorKey(value) {
+    value := normalizeFilterLabel(value)
+    if value = "红色"
+        return "红"
+    if value = "黄色"
+        return "黄"
+    if value = "绿色"
+        return "绿"
+    if value = "青色"
+        return "青"
+    if value = "蓝色"
+        return "蓝"
+    if value = "洋红" || value = "洋红色"
+        return "洋红"
+    if value = "白色"
+        return "白"
+    if value = "黑色" || value = "黑白色"
+        return "黑"
+    return ""
+}
+
+setPickFilterColor(expectedSignature, sourceColor) {
+    global jobFile, cadExe, isPaused, dataDir
+    if isPaused || cadExe = "" || !FileExist(jobFile) {
+        autoTip("尚未连接 CAXA 或控制器已暂停；未设置颜色过滤")
+        return false
+    }
+    try {
+        if IniRead(jobFile, "active", "job_signature", "") != expectedSignature {
+            autoTip("当前图纸任务已变化；未设置颜色过滤")
+            return false
+        }
+        workFile := IniRead(jobFile, "active", "working_file", "")
+        mainHwnd := findUniqueWorkWindow(workFile)
+        if !mainHwnd || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
+            autoTip("未能唯一定位当前工作副本；未设置颜色过滤")
+            return false
+        }
+        dialogHwnd := findPickFilterDialog(expectedSignature, workFile, mainHwnd)
+        if !dialogHwnd {
+            if !runPublishedNativeCommand(expectedSignature, "objectset", "打开拾取过滤设置")
+                return false
+            dialogHwnd := findPickFilterDialog(expectedSignature, workFile, mainHwnd)
+        }
+        if !dialogHwnd {
+            autoTip("未找到拾取过滤设置窗口；没有修改任何过滤条件")
+            return false
+        }
+        if !verifyBeforeAction(expectedSignature)
+          || !WinExist("ahk_id " dialogHwnd)
+          || WinGetPID("ahk_id " dialogHwnd) != WinGetPID("ahk_id " mainHwnd)
+          || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
+            autoTip("拾取过滤窗口身份核验失败；未修改过滤条件")
+            return false
+        }
+        WinActivate("ahk_id " dialogHwnd)
+        if !WinWaitActive("ahk_id " dialogHwnd, , 2) || WinGetID("A") != dialogHwnd {
+            autoTip("无法激活拾取过滤设置窗口；未修改过滤条件")
+            return false
+        }
+
+        controls := WinGetControls("ahk_id " dialogHwnd)
+        items := []
+        colorGroup := 0
+        for ctrl in controls {
+            try {
+                controlHwnd := ControlGetHwnd(ctrl, "ahk_id " dialogHwnd)
+                label := ControlGetText(ctrl, "ahk_id " dialogHwnd)
+                className := WinGetClass("ahk_id " controlHwnd)
+                ControlGetPos(&x, &y, &w, &h, ctrl, "ahk_id " dialogHwnd)
+                checked := -1
+                try checked := ControlGetChecked(ctrl, "ahk_id " dialogHwnd)
+                item := Map("ctrl", ctrl, "text", normalizeFilterLabel(label),
+                    "class", className, "x", x, "y", y, "w", w, "h", h,
+                    "checked", checked)
+                items.Push(item)
+                if item["text"] = "颜色" && className = "Button" && w > 100 && h > 100
+                    colorGroup := item
+            } catch {
+            }
+        }
+        if !colorGroup {
+            autoTip("未识别 CAXA 颜色过滤列表控件；未修改过滤条件")
+            probePickFilterDialog(expectedSignature, sourceColor)
+            return false
+        }
+        gx := colorGroup["x"], gy := colorGroup["y"]
+        gr := gx + colorGroup["w"], gb := gy + colorGroup["h"]
+        allButton := "", noneButton := ""
+        for item in items {
+            cx := item["x"] + item["w"] / 2
+            cy := item["y"] + item["h"] / 2
+            if cx < gx || cx > gr || cy < gy || cy > gb
+                continue
+            if InStr(item["text"], "全有")
+                allButton := item["ctrl"]
+            else if InStr(item["text"], "全无")
+                noneButton := item["ctrl"]
+        }
+        if allButton = "" || noneButton = "" {
+            autoTip("未识别颜色列表的“全有/全无”按钮；未修改过滤条件")
+            probePickFilterDialog(expectedSignature, sourceColor)
+            return false
+        }
+
+        wanted := []
+        if sourceColor = "红色"
+            wanted := ["红"]
+        else if sourceColor = "绿色"
+            wanted := ["绿"]
+        else if sourceColor = "蓝色"
+            wanted := ["蓝"]
+        else if sourceColor = "洋红色"
+            wanted := ["洋红"]
+        else if sourceColor = "白色+黑白色"
+            wanted := ["白", "黑"]
+        else if sourceColor != "全部颜色" {
+            autoTip("未知颜色筛选项；未修改过滤条件")
+            return false
+        }
+
+        targetControls := []
+        for target in wanted {
+            labelItem := 0
+            for item in items {
+                cx := item["x"] + item["w"] / 2
+                cy := item["y"] + item["h"] / 2
+                if cx < gx || cx > gr || cy < gy || cy > gb
+                    continue
+                if filterColorKey(item["text"]) = target {
+                    labelItem := item
+                    break
+                }
+            }
+            if !labelItem {
+                autoTip("颜色列表中未找到【" target "】；未修改过滤条件")
+                probePickFilterDialog(expectedSignature, sourceColor)
+                return false
+            }
+            targetControl := ""
+            if labelItem["checked"] >= 0 && labelItem["class"] = "Button" {
+                targetControl := labelItem["ctrl"]
+            } else {
+                bestDistance := 999999
+                labelY := labelItem["y"] + labelItem["h"] / 2
+                labelX := labelItem["x"]
+                for item in items {
+                    if item["class"] != "Button" || item["checked"] < 0
+                        continue
+                    cx := item["x"] + item["w"] / 2
+                    cy := item["y"] + item["h"] / 2
+                    if cx < gx || cx > gr || cy < gy || cy > gb
+                        continue
+                    if item["x"] + item["w"] > labelX + 3 || Abs(cy - labelY) > 8
+                        continue
+                    distance := labelX - (item["x"] + item["w"])
+                    if distance >= 0 && distance < bestDistance {
+                        bestDistance := distance
+                        targetControl := item["ctrl"]
+                    }
+                }
+            }
+            if targetControl = "" {
+                autoTip("无法将【" target "】文字与复选框对应；未修改过滤条件")
+                probePickFilterDialog(expectedSignature, sourceColor)
+                return false
+            }
+            targetControls.Push(targetControl)
+        }
+
+        if !verifyBeforeAction(expectedSignature)
+          || !WinExist("ahk_id " dialogHwnd)
+          || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
+            autoTip("颜色过滤最终核验失败；未修改过滤条件")
+            return false
+        }
+        if sourceColor = "全部颜色" {
+            ControlClick(allButton, "ahk_id " dialogHwnd)
+            Sleep 120
+            autoTip("已恢复颜色列表全选；请在 CAXA 过滤窗口点击“确定”")
+            return true
+        }
+
+        ControlClick(noneButton, "ahk_id " dialogHwnd)
+        Sleep 100
+        for ctrl in targetControls {
+            state := -1
+            try state := ControlGetChecked(ctrl, "ahk_id " dialogHwnd)
+            if state != 0 {
+                autoTip("颜色列表“全无”状态未能核实；未继续勾选")
+                probePickFilterDialog(expectedSignature, sourceColor)
+                return false
+            }
+        }
+        for ctrl in targetControls {
+            ControlClick(ctrl, "ahk_id " dialogHwnd)
+            Sleep 80
+            state := -1
+            try state := ControlGetChecked(ctrl, "ahk_id " dialogHwnd)
+            if state != 1 {
+                autoTip("颜色复选框状态读回失败；请人工检查过滤窗口")
+                probePickFilterDialog(expectedSignature, sourceColor)
+                return false
+            }
+        }
+        if !verifyBeforeAction(expectedSignature)
+          || !WinExist("ahk_id " dialogHwnd)
+          || WinGetPID("ahk_id " dialogHwnd) != WinGetPID("ahk_id " mainHwnd) {
+            autoTip("颜色过滤设置后任务窗口发生变化；请检查当前过滤窗口")
+            return false
+        }
+        autoTip("已自动设置" sourceColor "过滤；请在 CAXA 对话框点击“确定”")
+        return true
+    } catch as e {
+        autoTip("自动设置颜色过滤失败：" e.Message "；未继续操作")
+        try probePickFilterDialog(expectedSignature, sourceColor)
+        return false
+    }
+}
+
+readSelectedEntityCount(mainHwnd) {
+    for ctrl in WinGetControls("ahk_id " mainHwnd) {
+        try {
+            value := ControlGetText(ctrl, "ahk_id " mainHwnd)
+            if RegExMatch(value, "全部\s*[（(]\s*([0-9]+)\s*[）)]", &match) {
+                count := Integer(match[1])
+                if count > 0
+                    return count
+            }
+        } catch {
+        }
+    }
+    return 0
+}
+
+; One-time, non-clicking calibration of the four standard property-toolbar combos.
+beginPropertyComboCalibration(expectedSignature, slot, label) {
+    global jobFile, cadExe, calibrationBusy, isPaused
+    if isPaused || cadExe = "" || calibrationBusy {
+        autoTip("CAD 辅助已暂停、未连接，或已有校准正在进行")
+        return false
+    }
+    allowed := Map("layerCombo", true, "colorCombo", true,
+        "linetypeCombo", true, "lineweightCombo", true)
+    if !allowed.Has(slot) || !FileExist(jobFile)
+      || IniRead(jobFile, "active", "job_signature", "") != expectedSignature {
+        autoTip("当前任务或属性校准类型无效；未启动校准")
+        return false
+    }
+    workFile := IniRead(jobFile, "active", "working_file", "")
+    mainHwnd := findUniqueWorkWindow(workFile)
+    if !mainHwnd || !verifyBeforeAction(expectedSignature) {
+        autoTip("无法唯一定位当前工作副本；校准已取消")
+        return false
+    }
+    try {
+        WinActivate("ahk_id " mainHwnd)
+        if !WinWaitActive("ahk_id " mainHwnd, , 2)
+          || WinGetID("A") != mainHwnd
+          || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
+            autoTip("无法激活当前工作副本；校准已取消")
+            return false
+        }
+        title := WinGetTitle("ahk_id " mainHwnd)
+        className := WinGetClass("ahk_id " mainHwnd)
+        calibrationBusy := true
+        ToolTip("请在 8 秒内把鼠标移到 CAXA【常用】选项卡中的“" label "”属性下拉框上，不要点击。")
+        SetTimer(() => ToolTip(), -8200)
+        SetTimer(FinishPropertyComboCalibration.Bind(mainHwnd, expectedSignature,
+            slot, label, title, className, workFile), -8000)
+        return true
+    } catch as e {
+        calibrationBusy := false
+        autoTip("启动属性栏校准失败：" e.Message)
+        return false
+    }
+}
+
+FinishPropertyComboCalibration(mainHwnd, expectedSignature, slot, label, title, className, workFile) {
+    global cfgFile, jobFile, calibrationBusy
+    calibrationBusy := false
+    try {
+        if !WinExist("ahk_id " mainHwnd)
+          || WinGetID("A") != mainHwnd
+          || WinGetTitle("ahk_id " mainHwnd) != title
+          || WinGetClass("ahk_id " mainHwnd) != className
+          || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile)
+          || !FileExist(jobFile)
+          || IniRead(jobFile, "active", "job_signature", "") != expectedSignature
+          || !verifyBeforeAction(expectedSignature) {
+            autoTip("校准期间图纸或窗口发生变化；未保存控件")
+            return false
+        }
+        MouseGetPos(&x, &y, &hoverHwnd, &controlName)
+        if hoverHwnd != mainHwnd || controlName = "" {
+            autoTip("鼠标未停在 CAXA 属性下拉框上；未保存校准")
+            return false
+        }
+        controlHwnd := ControlGetHwnd(controlName, "ahk_id " mainHwnd)
+        if !controlHwnd {
+            autoTip("未识别到【" label "】下拉框；未保存校准")
+            return false
+        }
+        controlClass := WinGetClass("ahk_id " controlHwnd)
+        if controlClass != "ComboBox" && controlClass != "ComboBoxEx32" {
+            autoTip("【" label "】不是受支持的标准下拉框；不会猜测坐标修改")
+            return false
+        }
+        IniWrite controlName, cfgFile, slot, "control"
+        IniWrite controlClass, cfgFile, slot, "control_class"
+        IniWrite className, cfgFile, slot, "class"
+        IniWrite title, cfgFile, slot, "title"
+        autoTip("【" label "】属性下拉框校准完成")
+        return true
+    } catch as e {
+        autoTip("保存属性栏校准失败：" e.Message)
+        return false
+    }
+}
+
+isPropertyComboSlot(slot) {
+    return slot = "layerCombo" || slot = "colorCombo"
+        || slot = "linetypeCombo" || slot = "lineweightCombo"
+}
+
+comboHasExactItem(ctrl, hwnd, wanted) {
+    try items := ControlGetItems(ctrl, "ahk_id " hwnd)
+    catch
+        return false
+    for item in items {
+        if StrLower(Trim(item)) = StrLower(wanted)
+            return true
+    }
+    return false
+}
+
+; Apply the Excel-selected target layer and ByLayer overrides to the current
+; CAXA selection. No modal confirmation, no new selection, and no save.
+applyColorLayer(expectedSignature, targetLayer) {
+    global jobFile, cadExe, cfgFile, isPaused
+    if isPaused || !FileExist(jobFile) || cadExe = "" {
+        autoTip("CAD 辅助已暂停或没有活动工作副本；未修改选集")
+        return false
+    }
+    if targetLayer = "" || StrLen(targetLayer) > 64
+      || RegExMatch(targetLayer, "[\r\n\t=;#\[\]|]") {
+        autoTip("Excel 目标图层名称无效；已拒绝修改")
+        return false
+    }
+    try {
+        sig := IniRead(jobFile, "active", "job_signature", "")
+        workFile := IniRead(jobFile, "active", "working_file", "")
+        if sig != expectedSignature || workFile = "" {
+            autoTip("当前图纸任务与面板请求不一致；未修改属性")
+            return false
+        }
+        hwnd := findUniqueWorkWindow(workFile)
+        if !hwnd || StrLower(WinGetProcessName("ahk_id " hwnd)) != StrLower(cadExe)
+          || !jobWindowMatches(hwnd, workFile) {
+            autoTip("未能唯一定位当前工作副本；未修改属性")
+            return false
+        }
+        if !verifyBeforeAction(sig) || !FileExist(jobFile)
+          || IniRead(jobFile, "active", "job_signature", "") != sig
+          || !WinExist("ahk_id " hwnd) || !jobWindowMatches(hwnd, workFile) {
+            autoTip("归层前安全核验未通过；未修改属性")
+            return false
+        }
+        selectionCount := readSelectedEntityCount(hwnd)
+        if selectionCount < 1 {
+            autoTip("左侧特性栏未识别到非空选集；请先框选对象并保持特性栏打开，未修改属性")
+            return false
+        }
+        fieldPlan := [
+            Map("slot","colorCombo","value","ByLayer","label","颜色"),
+            Map("slot","linetypeCombo","value","ByLayer","label","线型"),
+            Map("slot","lineweightCombo","value","ByLayer","label","线宽"),
+            Map("slot","layerCombo","value",targetLayer,"label","图层")
+        ]
+        ; Preflight every control and target item before changing the selection.
+        for field in fieldPlan {
+            slot := field["slot"]
+            ctrl := IniRead(cfgFile, slot, "control", "")
+            expectedClass := IniRead(cfgFile, slot, "control_class", "")
+            if ctrl = "" || (expectedClass != "ComboBox" && expectedClass != "ComboBoxEx32") {
+                autoTip("首次使用请在设置中校准【" field["label"] "】属性下拉框；未修改选集")
+                return false
+            }
+            ctrlHwnd := 0
+            try ctrlHwnd := ControlGetHwnd(ctrl, "ahk_id " hwnd)
+            if !ctrlHwnd || WinGetClass("ahk_id " ctrlHwnd) != expectedClass
+              || !DllCall("IsWindowVisible", "ptr", ctrlHwnd, "int") {
+                autoTip("【" field["label"] "】属性下拉框与校准状态不符或不可见；未修改选集")
+                return false
+            }
+            if !comboHasExactItem(ctrl, hwnd, field["value"]) {
+                autoTip("【" field["label"] "】下拉框中找不到【" field["value"] "】；未修改选集")
+                return false
+            }
+        }
+        WinActivate("ahk_id " hwnd)
+        if !WinWaitActive("ahk_id " hwnd, , 2) || WinGetID("A") != hwnd
+          || !jobWindowMatches(hwnd, workFile)
+          || !verifyBeforeAction(sig) {
+            autoTip("属性修改前最终安全核验未通过；未修改选集")
+            return false
+        }
+        for field in fieldPlan {
+            slot := field["slot"]
+            ctrl := IniRead(cfgFile, slot, "control", "")
+            value := field["value"]
+            ControlChooseString value, ctrl, "ahk_id " hwnd
+            Sleep 120
+            observed := Trim(ControlGetText(ctrl, "ahk_id " hwnd))
+            if StrLower(observed) != StrLower(value) {
+                autoTip("【" field["label"] "】读回不一致；可能尚未修改或已部分修改，请检查左侧特性栏")
+                return false
+            }
+            if WinGetID("A") != hwnd || !jobWindowMatches(hwnd, workFile) {
+                autoTip("属性修改期间 CAXA 窗口发生变化；请检查左侧特性栏")
+                return false
+            }
+        }
+        autoTip("已向当前 " selectionCount " 个选中对象写入 ByLayer/【" targetLayer "】；请核对左侧特性栏，未自动保存")
+        return true
+    } catch as e {
+        autoTip("一键设置特性失败：" e.Message "；请检查左侧特性栏")
+        return false
+    }
+}
+
 ; Read-only, targeted diagnostics for the native CAXA pick-filter dialog.
 ; Only the dialog's control labels, IDs, classes, states and geometry are read.
 ; No drawing text, entity data, screenshots, clicks or property changes are captured.
