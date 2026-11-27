@@ -1835,6 +1835,8 @@ applyColorLayer(expectedSignature, sourceColor, targetLayer, targetColor, target
 ; Only the dialog's control labels, IDs, classes, states and geometry are read.
 ; No drawing text, entity data, screenshots, clicks or property changes are captured.
 probePickFilterDialog(expectedSignature, sourceColor := "") {
+    ; This probe enumerates only the named pick-filter dialog and its controls.
+    ; It includes that dialog's control text/class/ID/check state/geometry; it does not read main drawing-area controls.
     global jobFile, cadExe, dataDir, isPaused
     if isPaused || cadExe = "" || !FileExist(jobFile)
         return false
