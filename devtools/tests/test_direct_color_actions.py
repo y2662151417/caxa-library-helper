@@ -58,15 +58,29 @@ class DirectColorActionBridgeTests(unittest.TestCase):
                     linetype_scale=0, target_lineweight="ByLayer")
 
     def test_apply_color_layer_writes_every_excel_property(self):
-        request = self.read_request("apply_color_layer", target_layer="中心线层",
-                                    target_color="ByLayer", target_linetype="ByLayer",
-                                    linetype_scale=1.0, target_lineweight="ByLayer")
+        request = self.read_request("apply_color_layer", source_color="红色",
+                                    target_layer="中心线层", target_color="ByLayer",
+                                    target_linetype="ByLayer", linetype_scale=1.0,
+                                    target_lineweight="ByLayer")
         self.assertEqual(request["action"], "apply_color_layer")
         self.assertEqual(request["target_layer"], "中心线层")
         self.assertEqual(request["target_color"], "ByLayer")
         self.assertEqual(request["target_linetype"], "ByLayer")
         self.assertEqual(request["linetype_scale"], "1.0")
         self.assertEqual(request["target_lineweight"], "ByLayer")
+
+    def test_apply_color_layer_requires_a_source_color(self):
+        rule = dict(target_layer="中心线层", target_color="ByLayer",
+                    target_linetype="ByLayer", linetype_scale=1.0,
+                    target_lineweight="ByLayer")
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "颜色筛选项"):
+                bridge.request_panel_action(Path(directory), "apply_color_layer",
+                                            "a" * 64, **rule)
+
+    def test_properties_palette_probe_is_allowlisted(self):
+        request = self.read_request("probe_properties_palette")
+        self.assertEqual(request["action"], "probe_properties_palette")
 
     def test_property_combo_calibration_actions_are_allowlisted(self):
         for action in ("calibrate_layer_combo", "calibrate_color_combo",
