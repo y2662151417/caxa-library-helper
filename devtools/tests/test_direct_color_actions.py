@@ -43,18 +43,18 @@ class DirectColorActionBridgeTests(unittest.TestCase):
     def test_apply_color_layer_requires_a_safe_excel_target(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError, "目标图层"):
-                bridge.request_panel_action(Path(directory), "apply_color_layer", "a" * 64)
+                bridge.request_panel_action(Path(directory), "apply_color_layer", "a" * 64, source_color="红色")
         rule = dict(target_color="ByLayer", target_linetype="ByLayer",
                     linetype_scale=1.0, target_lineweight="ByLayer")
         for bad in ("", "中心线层\\n[bad]", "中心线层|bad", "x" * 65):
             with self.subTest(target=bad), tempfile.TemporaryDirectory() as directory:
                 with self.assertRaisesRegex(ValueError, "目标图层"):
                     bridge.request_panel_action(Path(directory), "apply_color_layer", "a" * 64,
-                                                target_layer=bad, **rule)
+                                                source_color="红色", target_layer=bad, **rule)
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError, "线型比例"):
                 bridge.request_panel_action(Path(directory), "apply_color_layer", "a" * 64,
-                    target_layer="中心线层", target_color="ByLayer", target_linetype="ByLayer",
+                    source_color="红色", target_layer="中心线层", target_color="ByLayer", target_linetype="ByLayer",
                     linetype_scale=0, target_lineweight="ByLayer")
 
     def test_apply_color_layer_writes_every_excel_property(self):
