@@ -1103,7 +1103,7 @@ FinishTimedCalibration(targetHwnd, mainHwnd, signature, slot, label, title, clas
 ; Locate the native pick-filter dialog for the exact active work copy.
 findPickFilterDialog(expectedSignature, workFile, mainHwnd) {
     pid := WinGetPID("ahk_id " mainHwnd)
-    for attempt in 1..30 {
+    Loop 30 {
         if !verifyBeforeAction(expectedSignature)
           || !WinExist("ahk_id " mainHwnd)
           || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile)
