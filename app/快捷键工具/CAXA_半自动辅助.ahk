@@ -444,9 +444,9 @@ PanelActionPoll() {
         sourceColor := IniRead(panelActionFile, "request", "source_color", "")
         targetLayer := IniRead(panelActionFile, "request", "target_layer", "")
         createdAt := IniRead(panelActionFile, "request", "created_at", "")
-        if RegExMatch(createdAt, "^\\d+(?:\\.\\d+)?$") {
+        if IsNumber(createdAt) {
             nowEpoch := DateDiff("19700101000000", A_NowUTC, "Seconds")
-            age := nowEpoch - Floor(Number(createdAt))
+            age := nowEpoch - Floor(createdAt + 0)
         } else {
             age := 999999
         }
