@@ -125,9 +125,14 @@ class ControllerBuildHandshakeTests(unittest.TestCase):
     def test_panel_action_epoch_is_parsed_as_ten_digit_integer(self):
         ahk = (ROOT / "app" / "快捷键工具" / "CAXA_半自动辅助.ahk").read_text(encoding="utf-8-sig")
         self.assertIn('RegExMatch(createdAt, "^\\d{10}$")', ahk)
-        self.assertIn('DateDiff("19700101000000", A_NowUTC, "Seconds")', ahk)
+        self.assertIn('DateDiff(A_NowUTC, "19700101000000", "Seconds")', ahk)
+        self.assertNotIn('DateDiff("19700101000000", A_NowUTC, "Seconds")', ahk)
         self.assertIn("age > 300", ahk)
 
+    def test_settings_exposes_data_folder_button_before_template_controls(self):
+        panel = (ROOT / "app" / "floating_panel.py").read_text(encoding="utf-8")
+        settings = panel.split("def open_settings_window", 1)[1].split("def _enforce_topmost", 1)[0]
+        self.assertLess(settings.index("打开助手数据文件夹"), settings.index("制作模板"))
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
