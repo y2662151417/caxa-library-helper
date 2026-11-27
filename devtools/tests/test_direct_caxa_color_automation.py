@@ -14,7 +14,7 @@ class DirectCaxaColorAutomationSourceTests(unittest.TestCase):
         self.assertIn("setPickFilterColor(signature, sourceColor)", self.ahk)
         self.assertIn('ControlClick(noneButton, "ahk_id " dialogHwnd)', self.ahk)
         self.assertIn('ControlClick(allButton, "ahk_id " dialogHwnd)', self.ahk)
-        self.assertIn('autoTip("已自动设置" sourceColor "过滤；请在 CAXA 对话框点击“确定”")', self.ahk)
+        self.assertIn('autoTip("已自动设置" sourceColor "过滤；请在 CAXA 对话框点击“确定”，再框选对象")', self.ahk)
 
     def test_white_and_black_filter_is_a_two_color_combination(self):
         self.assertIn('wanted := ["白", "黑"]', self.ahk)
@@ -47,7 +47,9 @@ class DirectCaxaColorAutomationSourceTests(unittest.TestCase):
         self.assertIn('createdAt := IniRead(panelActionFile, "request", "created_at", "")', self.ahk)
         self.assertIn("if IsNumber(createdAt)", self.ahk)
         self.assertIn("age > 300", self.ahk)
-        self.assertNotIn('age > 30', self.ahk)
+        poll = self.ahk.split("PanelActionPoll() {", 1)[1].split("\\n}", 1)[0]
+        self.assertIn("age > 300", poll)
+        self.assertNotIn("age > 30 ||", poll)
 
 
 if __name__ == "__main__":
