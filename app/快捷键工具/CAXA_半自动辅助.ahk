@@ -1189,10 +1189,48 @@ filterColorKey(value) {
     return ""
 }
 
+findFilterCheckbox(labelItem, items, gx, gy, gr, gb) {
+    if labelItem["checked"] >= 0 && labelItem["class"] = "Button"
+        return labelItem["ctrl"]
+    bestDistance := 999999
+    targetControl := ""
+    labelY := labelItem["y"] + labelItem["h"] / 2
+    labelX := labelItem["x"]
+    for item in items {
+        if item["class"] != "Button" || item["checked"] < 0
+            continue
+        cx := item["x"] + item["w"] / 2
+        cy := item["y"] + item["h"] / 2
+        if cx < gx || cx > gr || cy < gy || cy > gb
+            continue
+        if item["x"] + item["w"] > labelX + 3 || Abs(cy - labelY) > 8
+            continue
+        distance := labelX - (item["x"] + item["w"])
+        if distance >= 0 && distance < bestDistance {
+            bestDistance := distance
+            targetControl := item["ctrl"]
+        }
+    }
+    return targetControl
+}
+
 setPickFilterColor(expectedSignature, sourceColor) {
     global jobFile, cadExe, isPaused, dataDir
+    global lastPickFilterSignature, lastPickFilterSource
+    global lastPickFilterBaselineCount, lastPickFilterTick
+    ; Any new filter request invalidates the previous selection-to-rule link.
+    lastPickFilterSignature := ""
+    lastPickFilterSource := ""
+    lastPickFilterBaselineCount := -1
+    lastPickFilterTick := 0
     if isPaused || cadExe = "" || !FileExist(jobFile) {
         autoTip("尚未连接 CAXA 或控制器已暂停；未设置颜色过滤")
+        return false
+    }
+    if sourceColor != "红色" && sourceColor != "绿色" && sourceColor != "蓝色"
+      && sourceColor != "洋红色" && sourceColor != "白色+黑白色"
+      && sourceColor != "全部颜色" {
+        autoTip("未知颜色筛选项；未修改过滤条件")
         return false
     }
     try {
@@ -1206,6 +1244,11 @@ setPickFilterColor(expectedSignature, sourceColor) {
             autoTip("未能唯一定位当前工作副本；未设置颜色过滤")
             return false
         }
+        baselineCount := readSelectedEntityCount(mainHwnd)
+        if sourceColor != "全部颜色" && baselineCount > 0 {
+            autoTip("请先按 Esc 清除旧选集，再点击颜色按钮；避免把旧选集误归到新颜色")
+            return false
+        }
         dialogHwnd := findPickFilterDialog(expectedSignature, workFile, mainHwnd)
         if !dialogHwnd {
             if !runPublishedNativeCommand(expectedSignature, "objectset", "打开拾取过滤设置")
@@ -1216,9 +1259,10 @@ setPickFilterColor(expectedSignature, sourceColor) {
             autoTip("未找到拾取过滤设置窗口；没有修改任何过滤条件")
             return false
         }
+        pid := WinGetPID("ahk_id " mainHwnd)
         if !verifyBeforeAction(expectedSignature)
           || !WinExist("ahk_id " dialogHwnd)
-          || WinGetPID("ahk_id " dialogHwnd) != WinGetPID("ahk_id " mainHwnd)
+          || WinGetPID("ahk_id " dialogHwnd) != pid
           || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
             autoTip("拾取过滤窗口身份核验失败；未修改过滤条件")
             return false
@@ -1273,6 +1317,32 @@ setPickFilterColor(expectedSignature, sourceColor) {
             return false
         }
 
+        expectedKeys := ["红", "黄", "绿", "青", "蓝", "洋红", "白", "黑"]
+        colorControlMap := Map()
+        for item in items {
+            key := filterColorKey(item["text"])
+            if key = ""
+                continue
+            if colorControlMap.Has(key) {
+                autoTip("颜色列表中【" key "】出现重复标签；未修改过滤条件")
+                return false
+            }
+            checkbox := findFilterCheckbox(item, items, gx, gy, gr, gb)
+            if checkbox = "" {
+                autoTip("无法将【" item["text"] "】文字与复选框对应；未修改过滤条件")
+                probePickFilterDialog(expectedSignature, sourceColor)
+                return false
+            }
+            colorControlMap[key] := checkbox
+        }
+        for key in expectedKeys {
+            if !colorControlMap.Has(key) {
+                autoTip("未识别完整的标准颜色列表；请将颜色列表滚动到顶部后重试，未修改过滤条件")
+                probePickFilterDialog(expectedSignature, sourceColor)
+                return false
+            }
+        }
+
         wanted := []
         if sourceColor = "红色"
             wanted := ["红"]
@@ -1284,85 +1354,46 @@ setPickFilterColor(expectedSignature, sourceColor) {
             wanted := ["洋红"]
         else if sourceColor = "白色+黑白色"
             wanted := ["白", "黑"]
-        else if sourceColor != "全部颜色" {
-            autoTip("未知颜色筛选项；未修改过滤条件")
-            return false
-        }
-
-        targetControls := []
-        for target in wanted {
-            labelItem := 0
-            for item in items {
-                cx := item["x"] + item["w"] / 2
-                cy := item["y"] + item["h"] / 2
-                if cx < gx || cx > gr || cy < gy || cy > gb
-                    continue
-                if filterColorKey(item["text"]) = target {
-                    labelItem := item
-                    break
-                }
-            }
-            if !labelItem {
-                autoTip("颜色列表中未找到【" target "】；未修改过滤条件")
-                probePickFilterDialog(expectedSignature, sourceColor)
-                return false
-            }
-            targetControl := ""
-            if labelItem["checked"] >= 0 && labelItem["class"] = "Button" {
-                targetControl := labelItem["ctrl"]
-            } else {
-                bestDistance := 999999
-                labelY := labelItem["y"] + labelItem["h"] / 2
-                labelX := labelItem["x"]
-                for item in items {
-                    if item["class"] != "Button" || item["checked"] < 0
-                        continue
-                    cx := item["x"] + item["w"] / 2
-                    cy := item["y"] + item["h"] / 2
-                    if cx < gx || cx > gr || cy < gy || cy > gb
-                        continue
-                    if item["x"] + item["w"] > labelX + 3 || Abs(cy - labelY) > 8
-                        continue
-                    distance := labelX - (item["x"] + item["w"])
-                    if distance >= 0 && distance < bestDistance {
-                        bestDistance := distance
-                        targetControl := item["ctrl"]
-                    }
-                }
-            }
-            if targetControl = "" {
-                autoTip("无法将【" target "】文字与复选框对应；未修改过滤条件")
-                probePickFilterDialog(expectedSignature, sourceColor)
-                return false
-            }
-            targetControls.Push(targetControl)
-        }
+        else if sourceColor = "全部颜色"
+            wanted := expectedKeys
 
         if !verifyBeforeAction(expectedSignature)
           || !WinExist("ahk_id " dialogHwnd)
+          || WinGetPID("ahk_id " dialogHwnd) != pid
           || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
             autoTip("颜色过滤最终核验失败；未修改过滤条件")
             return false
         }
+
         if sourceColor = "全部颜色" {
             ControlClick(allButton, "ahk_id " dialogHwnd)
             Sleep 120
+            for key in expectedKeys {
+                state := -1
+                try state := ControlGetChecked(colorControlMap[key], "ahk_id " dialogHwnd)
+                if state != 1 {
+                    autoTip("恢复全选后颜色状态读回不一致；请人工检查过滤窗口")
+                    probePickFilterDialog(expectedSignature, sourceColor)
+                    return false
+                }
+            }
             autoTip("已恢复颜色列表全选；请在 CAXA 过滤窗口点击“确定”")
             return true
         }
 
         ControlClick(noneButton, "ahk_id " dialogHwnd)
         Sleep 100
-        for ctrl in targetControls {
+        for key in expectedKeys {
             state := -1
-            try state := ControlGetChecked(ctrl, "ahk_id " dialogHwnd)
+            try state := ControlGetChecked(colorControlMap[key], "ahk_id " dialogHwnd)
             if state != 0 {
                 autoTip("颜色列表“全无”状态未能核实；未继续勾选")
                 probePickFilterDialog(expectedSignature, sourceColor)
                 return false
             }
         }
-        for ctrl in targetControls {
+        for target in wanted {
+            ctrl := colorControlMap[target]
             ControlClick(ctrl, "ahk_id " dialogHwnd)
             Sleep 80
             state := -1
@@ -1373,13 +1404,34 @@ setPickFilterColor(expectedSignature, sourceColor) {
                 return false
             }
         }
+        for key in expectedKeys {
+            expectedState := 0
+            for target in wanted {
+                if target = key {
+                    expectedState := 1
+                    break
+                }
+            }
+            state := -1
+            try state := ControlGetChecked(colorControlMap[key], "ahk_id " dialogHwnd)
+            if state != expectedState {
+                autoTip("颜色筛选最终状态不一致；请检查过滤窗口，未继续操作")
+                probePickFilterDialog(expectedSignature, sourceColor)
+                return false
+            }
+        }
         if !verifyBeforeAction(expectedSignature)
           || !WinExist("ahk_id " dialogHwnd)
-          || WinGetPID("ahk_id " dialogHwnd) != WinGetPID("ahk_id " mainHwnd) {
+          || WinGetPID("ahk_id " dialogHwnd) != pid
+          || !titleHasExactWorkFile(WinGetTitle("ahk_id " mainHwnd), workFile) {
             autoTip("颜色过滤设置后任务窗口发生变化；请检查当前过滤窗口")
             return false
         }
-        autoTip("已自动设置" sourceColor "过滤；请在 CAXA 对话框点击“确定”")
+        lastPickFilterSignature := expectedSignature
+        lastPickFilterSource := sourceColor
+        lastPickFilterBaselineCount := baselineCount
+        lastPickFilterTick := A_TickCount
+        autoTip("已自动设置" sourceColor "过滤；请在 CAXA 对话框点击“确定”，再框选对象")
         return true
     } catch as e {
         autoTip("自动设置颜色过滤失败：" e.Message "；未继续操作")
@@ -1387,6 +1439,7 @@ setPickFilterColor(expectedSignature, sourceColor) {
         return false
     }
 }
+
 
 readPropertyPaneText(mainHwnd) {
     try return WinGetText("ahk_id " mainHwnd)
