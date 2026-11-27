@@ -1,6 +1,6 @@
 {
   "app_id": "CAXA_Library_Helper",
-  "version": "0.42.12",
+  "version": "0.42.13",
   "base_url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main",
   "files": [
     {
@@ -10,8 +10,8 @@
     },
     {
       "path": "app/app.py",
-      "size": 49456,
-      "sha256": "6be7a8f067257d948e1b14648a152a023851efebe740835c284b74c21afad0c3"
+      "size": 51384,
+      "sha256": "5c70a86927a1135b19b04928212eba075d55243aa3c4f1c66ffa14ce1ed8a409"
     },
     {
       "path": "app/autoread.py",
@@ -24,9 +24,19 @@
       "sha256": "8f13b46201f7a85f1c6d773f50c34f6ff20f20b160956528ee083d0f92e5d3ce"
     },
     {
+      "path": "app/cad_window.py",
+      "size": 5898,
+      "sha256": "7df22d8d0baa4a121fff67d57e3ec1b65b0b69589a2c65e6c520f1d2ba0179ff"
+    },
+    {
+      "path": "app/clipboard_utils.py",
+      "size": 3729,
+      "sha256": "4ec8bd4f534e48dc964dde9362b2a5ba39d9fbaf1c16ef1674b37c69be3a9e1d"
+    },
+    {
       "path": "app/core.py",
-      "size": 46817,
-      "sha256": "6b88b811b06280c2190529044cb2ff7b9cd6dd4f8e9f19d8518cf87319cf9f50"
+      "size": 54874,
+      "sha256": "0887b72b2393d8ee5c2f3f15e93e4fd5289ff0aa46a75df149588851bc209124"
     },
     {
       "path": "app/drawing_selector.py",
@@ -35,8 +45,8 @@
     },
     {
       "path": "app/floating_panel.py",
-      "size": 58558,
-      "sha256": "09b92e0b68e884b611ef09ca98ddd24f7b5b75e86c439cf41cb90a5ca5ee28af"
+      "size": 58590,
+      "sha256": "e9b789b5135b117f248090029eacece5fff6ea3abe3b86b62241acf01ab010e9"
     },
     {
       "path": "app/guided.py",
@@ -76,8 +86,8 @@
     },
     {
       "path": "app/快捷键工具/CAXA_半自动辅助.ahk",
-      "size": 76752,
-      "sha256": "8d9ed63cc40692ca5b852187cbffea935e2227c9034cfb48214de09a41ff1c80",
+      "size": 74227,
+      "sha256": "06daf6f7d3930a76d05d69d1a9f7387f7ea2b1098d26bdc09a0e9daacaefd757",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/CAXA_%E5%8D%8A%E8%87%AA%E5%8A%A8%E8%BE%85%E5%8A%A9.ahk"
     },
     {
@@ -112,8 +122,8 @@
     },
     {
       "path": "app/快捷键工具/说明_快捷操作.md",
-      "size": 4497,
-      "sha256": "dedfc8c52d25e36a645b9ab388bc19997f21da9c8b3c04c71a131374f98f4b0a",
+      "size": 5713,
+      "sha256": "a8523ca1043bb103335ed2f9d5dfa5a7ec18255994bc0593407679f19593f5c6",
       "url": "https://raw.githubusercontent.com/y2662151417/caxa-library-helper/main/app/%E5%BF%AB%E6%8D%B7%E9%94%AE%E5%B7%A5%E5%85%B7/%E8%AF%B4%E6%98%8E_%E5%BF%AB%E6%8D%B7%E6%93%8D%E4%BD%9C.md"
     },
     {
