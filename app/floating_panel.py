@@ -364,9 +364,14 @@ class Panel:
         except Exception as e:
             messagebox.showwarning('尚不能标记完成',str(e),parent=self.win)
     def open_settings_window(self):
-        w=self._dialog('settings','设置','350x390')
+        w=self._dialog('settings','设置','350x430')
         if getattr(w,'_caxa_built',False):return
         w._caxa_built=True
+        ttk.Button(w,text='打开助手数据文件夹（诊断日志）',
+                   command=self.open_data_folder).pack(fill='x',pady=(0,5))
+        ttk.Label(w,text='如再次出现“面板请求过期”，请将 panel_action_expiry.log 发回。',
+                  wraplength=315,foreground='#8a5a20').pack(anchor='w',pady=(0,5))
+        ttk.Separator(w).pack(fill='x',pady=(0,5))
         ttk.Label(w,text='制作模板',font=('Microsoft YaHei UI',10,'bold')).pack(anchor='w',pady=(0,4))
         self.combo=ttk.Combobox(w,state='readonly',textvariable=self.profile_display,
                                 values=[self._profile_display_name(x['id']) for x in self.profiles])
@@ -385,7 +390,6 @@ class Panel:
         ttk.Label(w,text='颜色映射从配置 Excel 读取。对象颜色、线型、线宽均按 ByLayer；线型比例为 1。',
                   wraplength=315,foreground='#666').pack(anchor='w',pady=5)
         ttk.Button(w,text='查看颜色映射规则',command=self.show_colors).pack(fill='x',pady=3)
-        ttk.Button(w,text='打开助手数据文件夹',command=self.open_data_folder).pack(fill='x',pady=3)
     def _enforce_topmost(self):
         if self._closed:return
         try:
