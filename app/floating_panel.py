@@ -937,7 +937,7 @@ class Panel:
             except Exception:
                 self._color_flow_signature=''
             self._color_flow_source=rule['source_color']
-            self.status.set(f"已设置{rule['source_color']}过滤；请在 CAXA 过滤窗口点击“确定”，再框选对象。")
+            self.status.set(f"已发送{rule['source_color']}筛选请求；等待 CAXA 自动设置勾选状态，再点击“确定”并框选对象。")
 
     def open_color_properties(self):
         if not self.require():return
@@ -954,14 +954,14 @@ class Panel:
                     target_layer=target_layer,target_color=rule['target_color'],
                     target_linetype=rule['target_linetype'],linetype_scale=rule['linetype_scale'],
                     target_lineweight=rule['target_lineweight']):
-                self.status.set(f"已执行归层请求：{rule['source_color']} → {target_layer}；请查看左侧特性栏核对，助手不会自动保存。")
+                self.status.set(f"已发送特性设置请求：{rule['source_color']} → {target_layer}；请查看左侧特性栏核对执行结果，助手不会自动保存。")
         except Exception as e:
             self.status.set(str(e))
 
     def restore_color_filter(self):
         if not self.require():return
         if self._queue_ahk_action('restore_pick_filter'):
-            self.status.set('已将颜色过滤恢复为全选；请在 CAXA 过滤窗口点击“确定”。')
+            self.status.set('已发送恢复全选请求；请确认 CAXA 颜色列表恢复全选后点击“确定”。')
             self._color_flow_signature=''
             self._color_flow_source=''
 
