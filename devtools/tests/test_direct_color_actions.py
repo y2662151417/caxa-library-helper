@@ -24,7 +24,8 @@ class DirectColorActionBridgeTests(unittest.TestCase):
                 request = self.read_request("set_pick_filter", source_color=color)
                 self.assertEqual(request["action"], "set_pick_filter")
                 self.assertEqual(request["source_color"], color)
-                self.assertTrue(float(request["created_at"]) > 0)
+                self.assertRegex(request["created_at"], r"^\\d{10}$")
+                self.assertTrue(int(request["created_at"]) > 0)
 
     def test_filter_rejects_unknown_or_missing_color(self):
         with tempfile.TemporaryDirectory() as directory:
