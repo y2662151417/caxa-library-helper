@@ -490,7 +490,8 @@ def _validate_block_name_items(items):
         else:
             raise ValueError('图纸映射每行必须包含图号、可选文件名和正式块名称')
         code = str(raw_code).strip()
-        drawing_filename = Path(str(raw_filename).strip()).name if str(raw_filename).strip() else ''
+        raw_filename = str(raw_filename).strip()
+        drawing_filename = raw_filename.replace('\\\\', '/').rsplit('/', 1)[-1] if raw_filename else ''
         block_name = str(raw_name).strip()
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*', code):
             raise ValueError(f'图号格式不正确：{code}')
