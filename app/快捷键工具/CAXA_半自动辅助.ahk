@@ -448,6 +448,10 @@ PanelActionPoll() {
         signature := IniRead(panelActionFile, "request", "job_signature", "")
         sourceColor := IniRead(panelActionFile, "request", "source_color", "")
         targetLayer := IniRead(panelActionFile, "request", "target_layer", "")
+        targetColor := IniRead(panelActionFile, "request", "target_color", "")
+        targetLinetype := IniRead(panelActionFile, "request", "target_linetype", "")
+        linetypeScale := IniRead(panelActionFile, "request", "linetype_scale", "")
+        targetLineweight := IniRead(panelActionFile, "request", "target_lineweight", "")
         createdAt := IniRead(panelActionFile, "request", "created_at", "")
         if IsNumber(createdAt) {
             nowEpoch := DateDiff("19700101000000", A_NowUTC, "Seconds")
@@ -484,7 +488,7 @@ PanelActionPoll() {
         } else if action = "restore_pick_filter" {
             setPickFilterColor(signature, "全部颜色")
         } else if action = "apply_color_layer" {
-            applyColorLayer(signature, targetLayer)
+            applyColorLayer(signature, targetLayer, targetColor, targetLinetype, linetypeScale, targetLineweight)
         } else if action = "calibrate_layer_combo" {
             beginPropertyComboCalibration(signature, "layerCombo", "图层")
         } else if action = "calibrate_color_combo" {
@@ -1351,6 +1355,12 @@ setPickFilterColor(expectedSignature, sourceColor) {
     }
 }
 
+readPropertyPaneText(mainHwnd) {
+    try return WinGetText("ahk_id " mainHwnd)
+    catch
+        return ""
+}
+
 readSelectedEntityCount(mainHwnd) {
     for ctrl in WinGetControls("ahk_id " mainHwnd) {
         try {
@@ -1363,18 +1373,20 @@ readSelectedEntityCount(mainHwnd) {
         } catch {
         }
     }
-    ; WinGetText reads child-window captions only, not rendered drawing entities.
-    ; It is a fallback for CAXA builds that expose the docked palette as one child.
-    try {
-        value := WinGetText("ahk_id " mainHwnd)
-        if RegExMatch(value, "全部\s*[（(]\s*([0-9]+)\s*[）)]", &match) {
-            count := Integer(match[1])
-            if count > 0
-                return count
-        }
-    } catch {
+    value := readPropertyPaneText(mainHwnd)
+    if RegExMatch(value, "全部\s*[（(]\s*([0-9]+)\s*[）)]", &match) {
+        count := Integer(match[1])
+        if count > 0
+            return count
     }
     return 0
+}
+
+readSelectedLinetypeScale(mainHwnd) {
+    value := readPropertyPaneText(mainHwnd)
+    if RegExMatch(value, "线型比例\s*([0-9]+(?:\.[0-9]+)?)", &match)
+        return Float(match[1])
+    return ""
 }
 
 ; One-time, non-clicking calibration of the four standard property-toolbar combos.
@@ -1480,15 +1492,17 @@ comboHasExactItem(ctrl, hwnd, wanted) {
 
 ; Apply the Excel-selected target layer and ByLayer overrides to the current
 ; CAXA selection. No modal confirmation, no new selection, and no save.
-applyColorLayer(expectedSignature, targetLayer) {
+applyColorLayer(expectedSignature, targetLayer, targetColor, targetLinetype, linetypeScale, targetLineweight) {
     global jobFile, cadExe, cfgFile, isPaused
     if isPaused || !FileExist(jobFile) || cadExe = "" {
         autoTip("CAD 辅助已暂停或没有活动工作副本；未修改选集")
         return false
     }
     if targetLayer = "" || StrLen(targetLayer) > 64
-      || RegExMatch(targetLayer, "[\r\n\t=;#\[\]|]") {
-        autoTip("Excel 目标图层名称无效；已拒绝修改")
+      || RegExMatch(targetLayer, "[\r\n\t=;#\[\]|]")
+      || targetColor = "" || targetLinetype = "" || targetLineweight = ""
+      || !IsNumber(linetypeScale) || Float(linetypeScale) <= 0 {
+        autoTip("Excel 特性规则缺少有效目标值；已拒绝修改")
         return false
     }
     try {
@@ -1515,10 +1529,20 @@ applyColorLayer(expectedSignature, targetLayer) {
             autoTip("左侧特性栏未识别到非空选集；请先框选对象并保持特性栏打开，未修改属性")
             return false
         }
+        targetScale := Float(linetypeScale)
+        currentScale := readSelectedLinetypeScale(hwnd)
+        if currentScale = "" {
+            autoTip("无法从左侧特性栏读取选集线型比例；未修改任何属性")
+            return false
+        }
+        if Abs(currentScale - targetScale) > 0.000001 {
+            autoTip("选集线型比例为 " currentScale "，Excel 要求 " targetScale "；当前未自动改写比例，未修改其他属性")
+            return false
+        }
         fieldPlan := [
-            Map("slot","colorCombo","value","ByLayer","label","颜色"),
-            Map("slot","linetypeCombo","value","ByLayer","label","线型"),
-            Map("slot","lineweightCombo","value","ByLayer","label","线宽"),
+            Map("slot","colorCombo","value",targetColor,"label","颜色"),
+            Map("slot","linetypeCombo","value",targetLinetype,"label","线型"),
+            Map("slot","lineweightCombo","value",targetLineweight,"label","线宽"),
             Map("slot","layerCombo","value",targetLayer,"label","图层")
         ]
         ; Preflight every control and target item before changing the selection.
@@ -1576,7 +1600,7 @@ applyColorLayer(expectedSignature, targetLayer) {
                 return false
             }
         }
-        autoTip("已向当前 " selectionCount " 个选中对象写入 ByLayer/【" targetLayer "】；请核对左侧特性栏，未自动保存")
+        autoTip("已向当前 " selectionCount " 个选中对象写入 Excel 特性；线型比例 " targetScale " 已核对。请检查左侧特性栏，未自动保存")
         return true
     } catch as e {
         autoTip("一键设置特性失败：" e.Message "；请检查左侧特性栏")
