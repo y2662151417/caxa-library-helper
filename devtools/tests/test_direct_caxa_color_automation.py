@@ -22,11 +22,26 @@ class DirectCaxaColorAutomationSourceTests(unittest.TestCase):
 
     def test_property_action_uses_excel_target_and_requires_a_nonempty_selection(self):
         self.assertIn('action = "apply_color_layer"', self.ahk)
-        self.assertIn("applyColorLayer(signature, targetLayer, targetColor, targetLinetype, linetypeScale, targetLineweight)", self.ahk)
+        self.assertIn("applyColorLayer(signature, sourceColor, targetLayer, targetColor, targetLinetype, linetypeScale, targetLineweight)", self.ahk)
+        self.assertIn("lastPickFilterSignature != expectedSignature", self.ahk)
+        self.assertIn("lastPickFilterSource != sourceColor", self.ahk)
+        self.assertIn("readSelectedPropertyValue(hwnd, \"layer\")", self.ahk)
+        self.assertIn("readSelectedPropertyValue(hwnd, \"lineweight\")", self.ahk)
+        self.assertIn("probePropertiesPalette(signature)", self.ahk)
         self.assertIn("selectionCount := readSelectedEntityCount(hwnd)", self.ahk)
         self.assertIn('if selectionCount < 1', self.ahk)
         self.assertIn('ControlChooseString value, ctrl, "ahk_id " hwnd', self.ahk)
         self.assertNotIn('runPublishedNativeCommand(signature, "properties"', self.ahk)
+
+    def test_dialog_poll_performs_expensive_preflight_only_once(self):
+        function = self.ahk.split("findPickFilterDialog(expectedSignature, workFile, mainHwnd) {", 1)[1].split("\n}", 1)[0]
+        self.assertEqual(function.count("verifyBeforeAction(expectedSignature)"), 1)
+        self.assertIn("IniRead(jobFile, \"active\", \"job_signature\", \"\")", function)
+
+    def test_color_filter_verifies_all_standard_color_states(self):
+        self.assertIn('expectedKeys := ["红", "黄", "绿", "青", "蓝", "洋红", "白", "黑"]', self.ahk)
+        self.assertIn("state != expectedState", self.ahk)
+        self.assertIn('lastPickFilterBaselineCount := baselineCount', self.ahk)
 
     def test_panel_request_expiry_uses_epoch_and_five_minute_ttl(self):
         self.assertIn('createdAt := IniRead(panelActionFile, "request", "created_at", "")', self.ahk)
