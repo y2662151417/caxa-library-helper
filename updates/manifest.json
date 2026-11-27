@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "app/ahk_runtime.py",
-      "size": 13638,
-      "sha256": "bd2232690df2d8dad3555f0faf3012fdc566ec44ec914e5de87470d94197b32b"
+      "size": 13674,
+      "sha256": "8eeab2fd5027b28c99fb566f63cfa55be9d33a8eb324a90af6e401266db31f91"
     },
     {
       "path": "app/app.py",
@@ -45,8 +45,8 @@
     },
     {
       "path": "app/floating_panel.py",
-      "size": 62889,
-      "sha256": "29db510aa2d4bc0144c99026430bd8bd821cdafcf81a1150275e08b5770c02d9"
+      "size": 62913,
+      "sha256": "12b87df53d7ea3caf21ecf04a276dc6d611d0ea31f6ae154d94d7752c39a48d2"
     },
     {
       "path": "app/guided.py",
