@@ -1139,16 +1139,23 @@ probePickFilterDialog(expectedSignature, sourceColor := "") {
             controlClass := "unavailable"
             controlId := "unavailable"
             checked := "n/a"
+            itemsText := ""
             try controlText := ControlGetText(ctrl, "ahk_id " dialogHwnd)
             try controlClass := WinGetClass("ahk_id " controlHwnd)
             try controlId := String(DllCall("GetDlgCtrlID", "Ptr", controlHwnd, "Int"))
             try checked := String(ControlGetChecked(ctrl, "ahk_id " dialogHwnd))
+            try {
+                items := ControlGetItems(ctrl, "ahk_id " dialogHwnd)
+                for _, item in items
+                    itemsText .= (itemsText = "" ? "" : " | ") . item
+            }
             cx := 0, cy := 0, cw := 0, ch := 0
             try ControlGetPos(&cx, &cy, &cw, &ch, ctrl, "ahk_id " dialogHwnd)
             report .= "#" . index . " | " . ctrl . " | HWND=" . controlHwnd
                 . " | ID=" . controlId . " | Class=" . controlClass
                 . " | Checked=" . checked . " | Rect=" . cx . "," . cy . "," . cw . "," . ch
                 . " | Text=" . StrReplace(StrReplace(controlText, Chr(13), " "), Chr(10), " ")
+                . " | Items=" . itemsText
                 . Chr(13) . Chr(10)
         } catch as e {
             report .= "#" . index . " | " . ctrl . " | read error: " . e.Message . Chr(13) . Chr(10)
@@ -1230,16 +1237,23 @@ probePropertiesPanel(expectedSignature, sourceColor := "") {
             controlClass := "unavailable"
             controlId := "unavailable"
             checked := "n/a"
+            itemsText := ""
             try controlText := ControlGetText(ctrl, "ahk_id " paletteHwnd)
             try controlClass := WinGetClass("ahk_id " controlHwnd)
             try controlId := String(DllCall("GetDlgCtrlID", "Ptr", controlHwnd, "Int"))
             try checked := String(ControlGetChecked(ctrl, "ahk_id " paletteHwnd))
+            try {
+                items := ControlGetItems(ctrl, "ahk_id " paletteHwnd)
+                for _, item in items
+                    itemsText .= (itemsText = "" ? "" : " | ") . item
+            }
             cx := 0, cy := 0, cw := 0, ch := 0
             try ControlGetPos(&cx, &cy, &cw, &ch, ctrl, "ahk_id " paletteHwnd)
             report .= "#" . index . " | " . ctrl . " | HWND=" . controlHwnd
                 . " | ID=" . controlId . " | Class=" . controlClass
                 . " | Checked=" . checked . " | Rect=" . cx . "," . cy . "," . cw . "," . ch
                 . " | Text=" . StrReplace(StrReplace(controlText, Chr(13), " "), Chr(10), " ")
+                . " | Items=" . itemsText
                 . Chr(13) . Chr(10)
         } catch as e {
             report .= "#" . index . " | " . ctrl . " | read error: " . e.Message . Chr(13) . Chr(10)
