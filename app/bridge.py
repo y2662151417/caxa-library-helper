@@ -18,10 +18,10 @@ PANEL_ACTIONS = {
     "start_view_guide", "next_view", "previous_view", "show_view_guide", "end_view_guide",
     "define_symbol", "edit_symbol_attributes", "fill_titleblock_attributes", "finish_gallery_insert",
     "calibrate_define", "calibrate_attr_edit", "calibrate_attr_fill", "calibrate_symbol_name", "calibrate_gallery_finish",
-    "probe_cad_controls",
+    "probe_cad_controls", "probe_pick_filter_dialog", "probe_properties_panel",
 }
 
-def request_panel_action(storage: Path, action: str, signature: str) -> Path:
+def request_panel_action(storage: Path, action: str, signature: str, *, source_color: str | None = None) -> Path:
     """Queue one allow-listed UI action for the local AHK controller.
 
     The request is atomically replaced and bound to the exact published job.
@@ -34,12 +34,18 @@ def request_panel_action(storage: Path, action: str, signature: str) -> Path:
     storage.mkdir(parents=True, exist_ok=True)
     conf = configparser.ConfigParser(interpolation=None)
     conf.optionxform = str
+    if source_color is not None:
+        allowed_colors = {"红色", "绿色", "蓝色", "洋红色", "白色+黑白色", "全部颜色"}
+        if source_color not in allowed_colors:
+            raise ValueError("不允许的颜色筛选项")
     conf["request"] = {
         "token": secrets.token_hex(16),
         "action": action,
         "job_signature": signature,
         "created_at": str(time.time()),
     }
+    if source_color is not None:
+        conf["request"]["source_color"] = source_color
     target = storage / "panel_action.ini"
     fd, tmpname = tempfile.mkstemp(prefix=".panel_action_", suffix=".tmp", dir=str(storage))
     try:
