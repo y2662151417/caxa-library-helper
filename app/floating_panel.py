@@ -171,7 +171,7 @@ class Panel:
         self.normal_frame.pack_forget()
         self.collapsed_frame.pack(fill='both',expand=True)
         self.win.geometry(self._collapsed_geometry)
-        self.win.minsize(290,65);self.win.maxsize(360,90)
+        self.win.minsize(260,52);self.win.maxsize(310,70)
 
     def expand_panel(self):
         if not self._collapsed:return
@@ -488,22 +488,21 @@ class Panel:
                     self.update_color_rule_choices();self._save_profile_preference()
                     self.status.set('已切换图纸，模板恢复通用默认。请核实设备类别。')
             if row:
-                self.context.set('当前：'+row['code']+'｜'+row['name']+'\n状态：'+row['status'])
+                self.context.set(row['code']+'｜'+row['name'])
                 try:
                     info=core.block_name_for_path(self.app.c,self.app.path)
-                    if info.get('status')=='已匹配':
-                        self.block_name_status.set('正式块名称：已匹配｜'+info.get('block_name',''))
-                    else:
-                        self.block_name_status.set('正式块名称：'+info.get('status','待匹配'))
+                    self.block_name_status.set('名称：已匹配' if info.get('status')=='已匹配'
+                                               else '名称：'+info.get('status','待匹配'))
                     if self.copy_name_button is not None:
                         self.copy_name_button.configure(state='normal' if info.get('status')=='已匹配' else 'disabled')
                 except Exception:
-                    self.block_name_status.set('正式块名称：暂不可读取')
+                    self.block_name_status.set('名称：暂不可读取')
             else:
                 self.context.set('尚未选择图纸')
-                self.block_name_status.set('正式块名称：请先导入 Excel 并选择图纸')
+                self.block_name_status.set('名称：请先选择图纸并导入 Excel')
                 if self.copy_name_button is not None:
                     self.copy_name_button.configure(state='disabled')
+            self.refresh_source_color_choices()
             self.update_recommendation()
             self._refresh_guide_status()
             if self.view_tree is not None:self._refresh_view_table()
@@ -529,14 +528,14 @@ class Panel:
             messagebox.showwarning('当前任务不可用',str(e),parent=self.win)
             return None
 
-    def _queue_ahk_action(self,action,confirm_text=None):
+    def _queue_ahk_action(self,action,confirm_text=None,source_color=None):
         job=self._published_job()
         if not job:return False
         if confirm_text and not messagebox.askyesno('确认 CAXA 操作',confirm_text.format(
                 code=job.get('code',''),work=job.get('working_file','')),parent=self.win,default='no'):
             return False
         try:
-            bridge.request_panel_action(core.storage_dir(),action,job['job_signature'])
+            bridge.request_panel_action(core.storage_dir(),action,job['job_signature'],source_color=source_color)
             self.status.set('操作请求已发送；正在等待 CAXA 控制器核验当前图纸。')
             return True
         except Exception as e:
@@ -891,50 +890,66 @@ class Panel:
         except Exception as e:
             self.color_rule_detail.set(str(e))
 
+    def _selected_cad_color_rule(self):
+        source=self.source_color_var.get().strip()
+        if not source or source=='全部颜色':
+            raise workflow_v08.WorkflowError('请先从下拉框选择一种需要处理的原始颜色。')
+        rule=core.get_cad_color_rule(self.app.c,source)
+        if not rule:
+            raise workflow_v08.WorkflowError(f'Excel 配置中没有“{source}”的颜色规则，请重新导入配置工作簿。')
+        return rule
+
     def open_color_filter(self):
         if not self.require():return
+        source=self.source_color_var.get().strip()
+        if source=='全部颜色':
+            if self._queue_ahk_action('restore_pick_filter',source_color='全部颜色'):
+                self._color_flow_signature=''
+                self._color_flow_source=''
+                self.status.set('已打开 CAXA 默认拾取过滤设置；当前仍需在对话框确认“默认/全选”。')
+            return
         try:
-            rule=self._selected_color_rule()
+            rule=self._selected_cad_color_rule()
         except Exception as e:
             messagebox.showwarning('颜色规则未配置',str(e),parent=self.win);return
-        if self._queue_ahk_action('open_pick_filter'):
+        if self._queue_ahk_action('open_pick_filter',source_color=source):
             try:
                 self._color_flow_signature=bridge.read_active_job(core.storage_dir()/'active_job.ini').get('job_signature','')
             except Exception:
                 self._color_flow_signature=''
-            self._color_flow_source=rule['source_color']
-            self._color_flow_profile_hash=workflow_v08.profile_fingerprint(self.current_profile())
-            self.status.set(f"已发送拾取过滤请求：源颜色【{rule['source_color']}】。在 CAXA 对话框中选择颜色条件后，仅框选机械视图区域。")
+            self._color_flow_source=source
+            self.status.set(f"已打开 CAXA 拾取过滤设置：{source}。当前版本会生成控件诊断；自动勾选需根据 CAXA 2024 实机控件校准。")
 
     def open_color_properties(self):
         if not self.require():return
         try:
-            rule=self._selected_color_rule()
+            rule=self._selected_cad_color_rule()
             current_job=self._published_job()
             if not current_job:return
             if not self._color_flow_signature or current_job.get('job_signature')!=self._color_flow_signature:
-                raise workflow_v08.WorkflowError('当前任务尚未在本面板启动颜色过滤，或图纸/名称/视图计划已变化。请先重新点击“打开颜色过滤”。')
+                raise workflow_v08.WorkflowError('请先点击“拾取筛选”，再在当前工作副本中框选对应颜色的机械视图对象。')
             if self._color_flow_source.casefold()!=rule['source_color'].casefold():
-                raise workflow_v08.WorkflowError('当前选择的源颜色与已启动的过滤规则不同，请重新打开过滤设置。')
-            if workflow_v08.profile_fingerprint(self.current_profile())!=self._color_flow_profile_hash:
-                raise workflow_v08.WorkflowError('颜色模板在过滤后发生变化，请重新打开过滤设置。')
+                raise workflow_v08.WorkflowError('当前下拉框颜色与刚才启动的拾取筛选不一致，请重新筛选。')
         except Exception as e:
             messagebox.showwarning('颜色处理状态不一致',str(e),parent=self.win);return
-        if not messagebox.askyesno('核对当前选集',
-            f"当前规则：{rule['source_color']} → {rule['target_layer']} / {rule['target_linetype']} / 比例 {rule['linetype_scale']}\n\n"
-            '你是否已经在 CAXA 中设置该源颜色过滤，并且只选中了当前工作副本中的机械视图对象？\n'
-            '不要包含图框、标题栏、尺寸或其他颜色组。',parent=self.win,default='no'):
+        confirm=(
+            f"颜色规则：{rule['source_color']} → {rule['target_layer']}\\n"
+            "对象颜色：ByLayer｜对象线型：ByLayer｜线型比例：1｜线宽：ByLayer\\n\\n"
+            "请确认当前 CAXA 选集仅包含本组机械视图对象，不含图框、标题栏、尺寸及其他颜色组。"
+        )
+        if not messagebox.askyesno('核对当前选集',confirm,parent=self.win,default='no'):
             return
-        if self._queue_ahk_action('open_properties'):
-            self.status.set('已发送属性面板请求。请在 CAXA 属性面板中手动设置并复核目标图层、线型和比例。')
+        if self._queue_ahk_action('open_properties',source_color=rule['source_color']):
+            self.status.set('已打开 CAXA 原生特性面板并生成只读诊断；本版尚未自动改写对象属性，等待控件校准。')
 
     def restore_color_filter(self):
         if not self.require():return
-        if self._queue_ahk_action('restore_pick_filter'):
-            self.status.set('已发送拾取过滤设置请求；请在 CAXA 中恢复默认/全选过滤条件后确认。')
+        self.source_color_var.set('全部颜色')
+        if self._queue_ahk_action('restore_pick_filter',source_color='全部颜色'):
+            self.status.set('已打开 CAXA 拾取过滤设置；请在对话框恢复默认/全选条件。')
             self._color_flow_signature=''
             self._color_flow_source=''
-            self._color_flow_profile_hash=''
+
 
     def show_colors(self):
         try:
