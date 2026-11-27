@@ -17,11 +17,11 @@ class Panel:
         self.win.title('CAXA 制作控制台')
         sw=max(1024,self.win.winfo_screenwidth())
         sh=max(720,self.win.winfo_screenheight())
-        self._expanded_geometry=f'340x310+{max(10,sw-360)}+{max(35,min(90,sh-360))}'
-        self._collapsed_geometry=f'300x70+{max(10,sw-320)}+{max(35,min(90,sh-120))}'
+        self._expanded_geometry=f'310x230+{max(10,sw-330)}+{max(35,min(90,sh-280))}'
+        self._collapsed_geometry=f'270x58+{max(10,sw-290)}+{max(35,min(90,sh-110))}'
         self.win.geometry(self._expanded_geometry)
-        self.win.minsize(320,270)
-        self.win.maxsize(390,390)
+        self.win.minsize(285,210)
+        self.win.maxsize(340,270)
         self.win.resizable(False,False)
         self.win.attributes('-topmost',True)
         self.win.protocol('WM_DELETE_WINDOW',self.hide_panel)
@@ -42,8 +42,13 @@ class Panel:
         self._color_flow_profile_hash=''
         self.last_path=None
         self.context=tk.StringVar(value='当前未选择图纸')
-        self.block_name_status=tk.StringVar(value='正式块名称：尚未匹配')
+        self.block_name_status=tk.StringVar(value='正式名称：尚未匹配')
         self.copy_name_button=None
+        self.source_color_var=tk.StringVar(value='红色')
+        self.source_color_combo=None
+        self.filter_button=None
+        self.apply_properties_button=None
+        self.source_color_values=()
         self.status=tk.StringVar(value='正在检查 CAD 控制器…')
         self.recommended=tk.StringVar(value='先选择图纸')
         self.action_reason=tk.StringVar(value='点击“选择图纸”，选中一行后点击“打开图纸”。系统会自动创建工作副本。')
@@ -65,21 +70,23 @@ class Panel:
 
 
     def _build_compact_ui(self):
-        self.normal_frame=ttk.Frame(self.win,padding=8)
+        self.normal_frame=ttk.Frame(self.win,padding=6)
         self.normal_frame.pack(fill='both',expand=True)
         header=ttk.Frame(self.normal_frame);header.pack(fill='x')
-        ttk.Label(header,text='CAXA 制作助手',font=('Microsoft YaHei UI',10,'bold')).pack(side='left')
-        ttk.Label(header,text='● 置顶',foreground='#16834a').pack(side='left',padx=7)
+        ttk.Label(header,text='CAXA 制作助手',font=('Microsoft YaHei UI',9,'bold')).pack(side='left')
+        ttk.Button(header,text='换图',width=4,command=self.open_workbench).pack(side='right',padx=(3,0))
+        ttk.Button(header,text='⋯',width=3,command=self.open_settings_window).pack(side='right',padx=(3,0))
         ttk.Button(header,text='—',width=3,command=self.collapse_panel).pack(side='right')
         self.page_host=ttk.Frame(self.normal_frame)
-        self.page_host.pack(fill='both',expand=True,pady=(5,2))
-        ttk.Separator(self.normal_frame).pack(fill='x',pady=(3,5))
-        ttk.Label(self.normal_frame,textvariable=self.status,wraplength=330,
-                  foreground='#555').pack(anchor='w')
-        self.collapsed_frame=ttk.Frame(self.win,padding=6)
+        self.page_host.pack(fill='both',expand=True,pady=(3,1))
+        ttk.Separator(self.normal_frame).pack(fill='x',pady=(2,3))
+        ttk.Label(self.normal_frame,textvariable=self.status,wraplength=285,
+                  foreground='#666',font=('Microsoft YaHei UI',8)).pack(anchor='w')
+        self.collapsed_frame=ttk.Frame(self.win,padding=5)
         collapsed_row=ttk.Frame(self.collapsed_frame);collapsed_row.pack(fill='x')
         ttk.Label(collapsed_row,text='CAXA',font=('Microsoft YaHei UI',9,'bold')).pack(side='left')
-        ttk.Label(collapsed_row,textvariable=self.context,wraplength=190).pack(side='left',fill='x',expand=True,padx=5)
+        ttk.Label(collapsed_row,textvariable=self.context,wraplength=150,
+                  font=('Microsoft YaHei UI',8)).pack(side='left',fill='x',expand=True,padx=5)
         ttk.Button(collapsed_row,text='展开',command=self.expand_panel).pack(side='right')
         self._show_home_page()
 
@@ -90,6 +97,9 @@ class Panel:
         self._page_frame=None
         self._dialogs.clear()
         self.color_combo=None
+        self.source_color_combo=None
+        self.filter_button=None
+        self.apply_properties_button=None
         self.view_tree=None
         self.copy_name_button=None
 
@@ -98,25 +108,47 @@ class Panel:
         self._page_key='home'
         self.win.title('CAXA 制作助手')
         self.win.geometry(self._expanded_geometry)
-        self.win.minsize(320,270);self.win.maxsize(390,390)
-        body=ttk.Frame(self.page_host,padding=3);body.pack(fill='both',expand=True)
-        ttk.Label(body,textvariable=self.context,wraplength=330,
-                  font=('Microsoft YaHei UI',9,'bold')).pack(anchor='w',pady=(5,2))
-        ttk.Label(body,textvariable=self.block_name_status,wraplength=330,
-                  foreground='#24527a').pack(anchor='w',pady=(0,3))
+        self.win.minsize(285,210);self.win.maxsize(340,270)
+        body=ttk.Frame(self.page_host,padding=(1,2,1,0));body.pack(fill='both',expand=True)
+        ttk.Label(body,textvariable=self.context,wraplength=282,
+                  font=('Microsoft YaHei UI',8,'bold')).pack(anchor='w',pady=(0,1))
+        ttk.Label(body,textvariable=self.block_name_status,wraplength=282,
+                  foreground='#24527a',font=('Microsoft YaHei UI',8)).pack(anchor='w',pady=(0,4))
+        color_row=ttk.Frame(body);color_row.pack(fill='x',pady=(0,4))
+        self.source_color_combo=ttk.Combobox(color_row,textvariable=self.source_color_var,
+            state='readonly',width=15,values=self._source_color_options())
+        self.source_color_combo.pack(side='left',fill='x',expand=True,padx=(0,4))
+        self.filter_button=ttk.Button(color_row,text='拾取筛选',command=self.open_color_filter)
+        self.filter_button.pack(side='right')
+        self.apply_properties_button=ttk.Button(body,text='一键设置特性',
+            command=self.open_color_properties)
+        self.apply_properties_button.pack(fill='x',pady=(0,4),ipady=2)
+        actions=ttk.Frame(body);actions.pack(fill='x',pady=(0,4))
+        actions.columnconfigure(0,weight=1);actions.columnconfigure(1,weight=1)
+        ttk.Button(actions,text='删除重线',command=self.delete_duplicate_lines).grid(
+            row=0,column=0,sticky='ew',padx=(0,2))
+        ttk.Button(actions,text='定义属性块',command=self.define_symbol).grid(
+            row=0,column=1,sticky='ew',padx=(2,0))
         self.copy_name_button=ttk.Button(body,text='复制正式块名称',command=self.copy_block_name)
-        self.copy_name_button.pack(fill='x',pady=(0,5))
-        ttk.Label(body,textvariable=self.app.view_template_summary_var,wraplength=330,
-                  foreground='#666').pack(anchor='w',pady=(0,7))
-        self.main_button=ttk.Button(body,textvariable=self.recommended,command=self.do_recommended)
-        self.main_button.pack(fill='x',pady=(2,3),ipady=8)
-        ttk.Label(body,textvariable=self.action_reason,wraplength=330,
-                  foreground='#666').pack(anchor='w',pady=(0,9))
-        row=ttk.Frame(body);row.pack(fill='x')
-        for col in range(3):row.columnconfigure(col,weight=1)
-        ttk.Button(row,text='更多操作',command=self.open_actions_page).grid(row=0,column=0,sticky='ew',padx=(0,3))
-        ttk.Button(row,text='选择图纸',command=self.open_workbench).grid(row=0,column=1,sticky='ew',padx=3)
-        ttk.Button(row,text='设置',command=self.open_settings_window).grid(row=0,column=2,sticky='ew',padx=(3,0))
+        self.copy_name_button.pack(fill='x')
+        self.refresh_source_color_choices()
+
+    def _source_color_options(self):
+        try:
+            return [r['source_color'] for r in core.get_cad_color_rules(self.app.c)] + ['全部颜色']
+        except Exception:
+            return ['红色','白色+黑白色','蓝色','绿色','洋红色','全部颜色']
+
+    def refresh_source_color_choices(self):
+        if self.source_color_combo is None:
+            return
+        values=tuple(self._source_color_options())
+        if values!=self.source_color_values:
+            self.source_color_values=values
+            try:self.source_color_combo.configure(values=values)
+            except tk.TclError:return
+        if self.source_color_var.get() not in values:
+            self.source_color_var.set(values[0] if values else '全部颜色')
 
     def open_actions_page(self):
         w=self._dialog('actions','操作入口','350x420')
@@ -146,7 +178,7 @@ class Panel:
         self._collapsed=False
         self.collapsed_frame.pack_forget()
         self.normal_frame.pack(fill='both',expand=True)
-        self.win.minsize(320,270);self.win.maxsize(390,390)
+        self.win.minsize(285,210);self.win.maxsize(340,270)
         self.win.geometry(self._expanded_geometry)
         self.win.attributes('-topmost',True)
 
