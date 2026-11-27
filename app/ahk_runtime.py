@@ -235,7 +235,7 @@ def install_runtime(storage_dir: Optional[Path] = None, opener=None, machine: Op
 
 
 def launch_script(script: Path, storage_dir: Optional[Path] = None, popen=None):
-    """Launch AHK with a fresh log and remove any stale PID marker."""
+    """Launch AHK with fresh diagnostics and clear stale PID/build markers."""
     if not _is_windows():
         raise RuntimeError("CAXA 快捷控制器只能在 Windows 上运行。")
     script = Path(script).resolve()
@@ -272,7 +272,7 @@ def launch_script(script: Path, storage_dir: Optional[Path] = None, popen=None):
 
 def start_script_async(script: Path, callback: Optional[Callable[[bool, str], None]] = None,
                        storage_dir: Optional[Path] = None) -> threading.Thread:
-    """Prepare AHK, then wait for this exact process to register its PID marker."""
+    """Prepare AHK, then wait for this exact process to register its PID and build markers."""
     def worker():
         proc = None
         try:
@@ -303,7 +303,7 @@ def start_script_async(script: Path, callback: Optional[Callable[[bool, str], No
                 except Exception:
                     pass
                 raise RuntimeError(
-                    "AutoHotkey 进程仍在运行，但 8 秒内没有写入与本次进程 PID 匹配的控制器标记。\n"
+                    "AutoHotkey 进程仍在运行，但 8 秒内没有写入与本次进程 PID、构建版本均匹配的控制器标记。\n"
                     f"本次进程 PID：{proc.pid}；标记文件 PID：{observed or '缺失/无效'}；"
                     f"控制器版本标记：{observed_build or '缺失/无效'}；期望版本：{CONTROLLER_BUILD_ID}；"
                     f"标记路径：{marker}\n"
