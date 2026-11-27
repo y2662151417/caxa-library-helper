@@ -32,6 +32,13 @@
 - 不允许用猜测坐标或未验证的 CHPROP 等命令代替实机验证。
 - 不自动填写图符属性、不自动完成图库入库、不自动提交、不自动保存 EXB。
 
+## 自动化验证
+
+- GitHub Actions：Python 3.11 compileall 通过。
+- 92 项 unittest 全部通过。
+- 25 个增量更新文件的 manifest SHA-256/size 校验通过。
+- CI 不覆盖 Windows AHK 与 CAXA 2024 实机行为。
+
 ## 下一步
 
 1. GitHub Actions 运行 Python 编译、单元测试和 manifest SHA-256 校验。
