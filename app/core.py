@@ -499,7 +499,7 @@ def _validate_block_name_items(items):
             raise ValueError(f'正式块名称为空或包含不允许的字符：{block_name}')
         expected_prefix = code + '_'
         if not block_name.casefold().startswith(expected_prefix.casefold()):
-            raise ValueError(f'正式块名称必须以对应图号加下划线开头：{code} / {block_name}')
+            raise ValueError(f'正式块名称前缀不一致，必须以对应图号加下划线开头：{code} / {block_name}')
         if drawing_filename:
             file_code, _, valid_file = parse_filename(drawing_filename)
             if not valid_file or file_code.casefold() != code.casefold():
