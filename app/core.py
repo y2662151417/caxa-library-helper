@@ -738,6 +738,10 @@ def read_caxa_workbook_xlsx(path):
             break
         if _is_name_header(values):
             break
+        allowed_columns = {code_col, name_col} | ({file_col} if file_col else set())
+        extras = [col for col, value in values.items() if value and col not in allowed_columns]
+        if extras:
+            raise ValueError(f'Excel 第{row_number}行出现未定义的图纸映射列：{extras[0]}。请保留图号、文件名、块名称三列。')
         code = values.get(code_col, '').strip()
         filename = values.get(file_col, '').strip() if file_col else ''
         block_name = values.get(name_col, '').strip()
@@ -889,18 +893,21 @@ def import_block_names(c, content):
     return _store_block_name_items(c, items, source_label='旧版 TXT/CSV')
 
 def resolve_block_names(c):
-    """Resolve imported symbol names against present drawings by exact code only."""
+    """Resolve by exact drawing code and, when supplied, exact EXB basename."""
     drawings=c.execute('SELECT path,code FROM drawings WHERE present=1').fetchall()
     by_code={}
     for drawing in drawings:
         by_code.setdefault(drawing['code'].casefold(),[]).append(drawing['path'])
-    entries=c.execute('SELECT code FROM block_name_map').fetchall()
+    entries=c.execute('SELECT code,drawing_filename FROM block_name_map').fetchall()
     for entry in entries:
         matches=by_code.get(entry['code'].casefold(),[])
+        filename=entry['drawing_filename'].casefold()
+        if filename:
+            matches=[path for path in matches if Path(path).name.casefold()==filename]
         if len(matches)==1:
             status='已匹配'; path=matches[0]
         elif not matches:
-            status='未找到对应图纸'; path=''
+            status='未找到对应图纸' if not filename else '文件名不一致或未找到对应图纸'; path=''
         else:
             status='同图号对应多张图纸'; path=''
         c.execute('UPDATE block_name_map SET matched_path=?,match_status=? WHERE code=?',
@@ -922,10 +929,13 @@ def block_name_for_path(c, path):
         return {'code':drawing['code'],'block_name':'','matched_path':'','status':'清单中没有此图号'}
     if row['match_status']!='已匹配':
         return {'code':drawing['code'],'block_name':'','matched_path':'','status':row['match_status']}
+    if row['drawing_filename'] and Path(path).name.casefold()!=row['drawing_filename'].casefold():
+        return {'code':drawing['code'],'block_name':'','matched_path':row['matched_path'],
+                'status':'文件名与 Excel 映射不一致'}
     if row['matched_path']!=str(path):
         return {'code':drawing['code'],'block_name':'','matched_path':row['matched_path'],'status':'图号匹配路径不一致'}
-    return {'code':drawing['code'],'block_name':row['block_name'],
-            'matched_path':row['matched_path'],'status':'已匹配'}
+    return {'code':drawing['code'],'drawing_filename':row['drawing_filename'],
+            'block_name':row['block_name'],'matched_path':row['matched_path'],'status':'已匹配'}
 
 
 def block_name_summary(c):
