@@ -453,7 +453,7 @@ class App:
             missing=[x for x in rows if x['match_status']!='已匹配']
             self.refresh()
             self.sync_job()
-            detail='\\n'.join(f"{x['code']}：{x['match_status']}" for x in missing[:12])
+            detail='\n'.join(f"{x['code']}：{x['match_status']}" for x in missing[:12])
             message=f'从 Excel 导入 {n} 个正式块名称，按完整图号准确匹配 {found}/{n} 项。'
             if detail:
                 message+='\\n\\n未匹配项（最多显示12项）：\\n'+detail
